@@ -6,18 +6,19 @@ const UserController = {
     try {
       const reservations = ReservationModel.getByUserEmail(req.user.email);
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const now = new Date();
+      const BUFFER_MINUTES = 5;
 
       const active = [];
       const past = [];
 
       for (const r of reservations) {
-        const rDate = new Date(r.date + 'T00:00:00');
-        if (rDate >= today) {
-          active.push(r);
-        } else {
+        const reservationDateTime = new Date(r.date + 'T' + r.time + ':00');
+        const completedAt = new Date(reservationDateTime.getTime() + BUFFER_MINUTES * 60 * 1000);
+        if (now >= completedAt) {
           past.push(r);
+        } else {
+          active.push(r);
         }
       }
 

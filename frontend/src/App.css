@@ -799,6 +799,105 @@
   margin: 0 0 16px 0;
 }
 
+/* Nearby Restaurants Map */
+.nearby-section {
+  margin-bottom: 8px;
+}
+
+.nearby-error {
+  background: #fff3cd;
+  color: #856404;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.map-container {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.map-container .leaflet-control-attribution {
+  display: none !important;
+}
+
+.user-location-marker {
+  background: none !important;
+  border: none !important;
+}
+
+.user-dot {
+  width: 16px;
+  height: 16px;
+  background: #3498db;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.3), 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.map-popup {
+  min-width: 160px;
+  font-family: inherit;
+}
+
+.map-popup strong {
+  display: block;
+  font-size: 0.95rem;
+  color: #2c3e50;
+  margin-bottom: 4px;
+}
+
+.map-popup-rating {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.map-popup-stars {
+  color: #f39c12;
+  font-size: 0.9rem;
+  letter-spacing: 1px;
+}
+
+.map-popup-score {
+  font-size: 0.8rem;
+  color: #7f8c8d;
+  font-weight: 600;
+}
+
+.map-popup-address {
+  color: #7f8c8d;
+  font-size: 0.8rem;
+  margin: 0 0 2px 0;
+}
+
+.map-popup-distance {
+  color: #3498db;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.map-popup-btn {
+  display: block;
+  width: 100%;
+  padding: 8px 0;
+  background: #2c3e50;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.map-popup-btn:hover {
+  background: #34495e;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .restaurant-detail {

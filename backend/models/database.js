@@ -28,6 +28,8 @@ db.exec(`
     description TEXT,
     rating REAL DEFAULT 0 CHECK(rating >= 0 AND rating <= 5),
     image_url TEXT,
+    latitude REAL,
+    longitude REAL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -58,6 +60,15 @@ if (!columns.includes('password_hash')) {
 }
 if (!columns.includes('avatar_url')) {
   db.exec('ALTER TABLE users ADD COLUMN avatar_url TEXT');
+}
+
+// Migrate restaurants: add latitude/longitude if missing
+const restCols = db.pragma('table_info(restaurants)').map(c => c.name);
+if (!restCols.includes('latitude')) {
+  db.exec('ALTER TABLE restaurants ADD COLUMN latitude REAL');
+}
+if (!restCols.includes('longitude')) {
+  db.exec('ALTER TABLE restaurants ADD COLUMN longitude REAL');
 }
 
 // Migrate reservations: add name, email, phone if missing

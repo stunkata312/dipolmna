@@ -42,6 +42,10 @@ function ProfilePage() {
       return;
     }
     fetchReservations();
+
+    // Re-fetch every 60 seconds so completed reservations move to past automatically
+    const interval = setInterval(fetchReservations, 60000);
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, token, navigate]);
 

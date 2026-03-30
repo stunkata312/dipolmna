@@ -11,6 +11,21 @@ const RestaurantController = {
     }
   },
 
+  getNearby(req, res) {
+    try {
+      const lat = parseFloat(req.query.lat);
+      const lng = parseFloat(req.query.lng);
+      if (isNaN(lat) || isNaN(lng)) {
+        return res.status(400).json({ error: 'lat and lng query parameters are required' });
+      }
+      const restaurants = RestaurantModel.getNearby(lat, lng);
+      res.json(restaurants);
+    } catch (error) {
+      console.error('Error fetching nearby restaurants:', error);
+      res.status(500).json({ error: 'Failed to fetch nearby restaurants' });
+    }
+  },
+
   getById(req, res) {
     try {
       const id = parseInt(req.params.id, 10);

@@ -16,6 +16,7 @@ app.use(express.json());
 
 // Restaurant routes
 app.get('/api/restaurants', RestaurantController.getAll);
+app.get('/api/restaurants/nearby', RestaurantController.getNearby);
 app.get('/api/restaurants/:id', RestaurantController.getById);
 
 // Reservation routes
