@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'http://localhost:3001/api';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
@@ -76,6 +76,20 @@ export function AuthProvider({ children }) {
     return data.user;
   }, []);
 
+  const restaurantRegister = useCallback(async (ownerData, restaurantData) => {
+    const res = await fetch(`${API_URL}/restaurant/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...ownerData, ...restaurantData })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Registration failed');
+    localStorage.setItem('token', data.token);
+    setToken(data.token);
+    setUser(data.user);
+    return data;
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem('token');
     setToken(null);
@@ -83,7 +97,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, googleLogin, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, googleLogin, restaurantRegister, logout }}>
       {children}
     </AuthContext.Provider>
   );

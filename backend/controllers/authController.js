@@ -41,7 +41,7 @@ const AuthController = {
       const token = generateToken(user);
       res.status(201).json({
         token,
-        user: { id: user.id, name: user.name, email: user.email, phone: user.phone, avatar_url: user.avatar_url }
+        user: { id: user.id, name: user.name, email: user.email, phone: user.phone, avatar_url: user.avatar_url, role: user.role || 'customer' }
       });
     } catch (error) {
       console.error('Registration error:', error);
@@ -71,7 +71,7 @@ const AuthController = {
       const token = generateToken(user);
       res.json({
         token,
-        user: { id: user.id, name: user.name, email: user.email, phone: user.phone, avatar_url: user.avatar_url }
+        user: { id: user.id, name: user.name, email: user.email, phone: user.phone, avatar_url: user.avatar_url, role: user.role || 'customer' }
       });
     } catch (error) {
       console.error('Login error:', error);
@@ -119,7 +119,7 @@ const AuthController = {
       const token = generateToken(user);
       res.json({
         token,
-        user: { id: user.id, name: user.name, email: user.email, phone: user.phone, avatar_url: user.avatar_url }
+        user: { id: user.id, name: user.name, email: user.email, phone: user.phone, avatar_url: user.avatar_url, role: user.role || 'customer' }
       });
     } catch (error) {
       console.error('Google login error:', error);
@@ -135,7 +135,7 @@ const AuthController = {
         return res.status(404).json({ error: 'User not found' });
       }
       res.json({
-        user: { id: user.id, name: user.name, email: user.email, phone: user.phone, avatar_url: user.avatar_url }
+        user: { id: user.id, name: user.name, email: user.email, phone: user.phone, avatar_url: user.avatar_url, role: user.role || 'customer' }
       });
     } catch (error) {
       console.error('Get user error:', error);

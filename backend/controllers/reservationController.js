@@ -5,7 +5,7 @@ const UserModel = require('../models/userModel');
 const ReservationController = {
   create(req, res) {
     try {
-      const { name, email, phone, restaurant_id, date, time, num_people } = req.body;
+      const { name, email, phone, restaurant_id, date, time, num_people, notes } = req.body;
 
       // Validate required fields
       if (!name || !email || !restaurant_id || !date || !time || !num_people) {
@@ -50,7 +50,8 @@ const ReservationController = {
         phone: phone || null,
         date,
         time,
-        num_people: people
+        num_people: people,
+        notes: notes || null
       });
 
       res.status(201).json({

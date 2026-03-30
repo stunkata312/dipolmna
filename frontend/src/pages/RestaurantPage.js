@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import StarRating from '../components/StarRating';
 import ReservationForm from '../components/ReservationForm';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'http://localhost:3001/api';
 
 function RestaurantPage() {
   const { id } = useParams();

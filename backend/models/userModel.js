@@ -2,7 +2,7 @@ const db = require('./database');
 
 const UserModel = {
   getById(id) {
-    return db.prepare('SELECT id, name, email, phone, google_id, avatar_url, created_at FROM users WHERE id = ?').get(id);
+    return db.prepare('SELECT id, name, email, phone, google_id, avatar_url, role, created_at FROM users WHERE id = ?').get(id);
   },
 
   getByEmail(email) {
@@ -31,6 +31,10 @@ const UserModel = {
 
   updateProfile(userId, { name, phone, avatar_url }) {
     db.prepare('UPDATE users SET name = ?, phone = ?, avatar_url = ? WHERE id = ?').run(name, phone || null, avatar_url || null, userId);
+  },
+
+  setRole(userId, role) {
+    db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, userId);
   },
 
   findOrCreate({ name, email, phone }) {

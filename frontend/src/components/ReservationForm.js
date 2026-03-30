@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'http://localhost:3001/api';
 
 function ReservationForm({ restaurantId }) {
   const { user } = useAuth();
@@ -11,7 +11,8 @@ function ReservationForm({ restaurantId }) {
     phone: '',
     date: '',
     time: '',
-    num_people: ''
+    num_people: '',
+    notes: ''
   });
   const [success, setSuccess] = useState(null);
   const [error, setError] = useState(null);
@@ -82,14 +83,15 @@ function ReservationForm({ restaurantId }) {
         throw new Error(data.error || 'Failed to create reservation');
       }
 
-      setSuccess('Reservation created successfully!');
+      setSuccess('Reservation submitted! The restaurant will confirm shortly.');
       setFormData({
         name: user?.name || '',
         email: user?.email || '',
         phone: user?.phone || '',
         date: '',
         time: '',
-        num_people: ''
+        num_people: '',
+        notes: ''
       });
     } catch (err) {
       setError(err.message);
@@ -178,6 +180,18 @@ function ReservationForm({ restaurantId }) {
             onChange={handleChange}
             min="1"
             placeholder="2"
+          />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="notes">Special Requests (optional)</label>
+          <input
+            type="text"
+            id="notes"
+            name="notes"
+            value={formData.notes}
+            onChange={handleChange}
+            placeholder="e.g. birthday, allergy, high chair needed"
           />
         </div>
 

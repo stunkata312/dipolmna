@@ -5,21 +5,22 @@ const RestaurantController = require('./controllers/restaurantController');
 const ReservationController = require('./controllers/reservationController');
 const AuthController = require('./controllers/authController');
 const UserController = require('./controllers/userController');
-const { requireAuth } = require('./middleware/auth');
+const RestaurantAdminController = require('./controllers/restaurantAdminController');
+const { requireAuth, requireRestaurantOwner } = require('./middleware/auth');
 
 const app = express();
-const PORT = 5000;
+const PORT = 3001;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Restaurant routes
+// Public restaurant routes
 app.get('/api/restaurants', RestaurantController.getAll);
 app.get('/api/restaurants/nearby', RestaurantController.getNearby);
 app.get('/api/restaurants/:id', RestaurantController.getById);
 
-// Reservation routes
+// Customer reservation routes
 app.post('/api/reservations', ReservationController.create);
 app.put('/api/reservations/:id', requireAuth, ReservationController.update);
 app.delete('/api/reservations/:id', requireAuth, ReservationController.cancel);
@@ -32,6 +33,16 @@ app.get('/api/auth/me', requireAuth, AuthController.me);
 
 // User routes
 app.get('/api/user/reservations', requireAuth, UserController.getReservations);
+
+// Restaurant owner routes
+app.post('/api/restaurant/register', RestaurantAdminController.register);
+app.get('/api/restaurant/me', requireRestaurantOwner, RestaurantAdminController.getMyRestaurant);
+app.put('/api/restaurant/me', requireRestaurantOwner, RestaurantAdminController.updateMyRestaurant);
+app.get('/api/restaurant/dashboard', requireRestaurantOwner, RestaurantAdminController.getDashboard);
+app.put('/api/restaurant/reservations/:id/approve', requireRestaurantOwner, RestaurantAdminController.approveReservation);
+app.put('/api/restaurant/reservations/:id/decline', requireRestaurantOwner, RestaurantAdminController.declineReservation);
+app.put('/api/restaurant/reservations/:id/status', requireRestaurantOwner, RestaurantAdminController.updateReservationStatus);
+app.put('/api/restaurant/reservations/:id', requireRestaurantOwner, RestaurantAdminController.modifyReservation);
 
 // Start server
 app.listen(PORT, () => {
