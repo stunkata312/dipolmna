@@ -367,6 +367,233 @@
   color: #2c3e50;
 }
 
+/* Modern reservation sections */
+.res-section {
+  margin-bottom: 20px;
+}
+
+.res-section-label {
+  display: block;
+  font-weight: 700;
+  color: #2c3e50;
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+}
+
+/* People counter */
+.people-counter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 8px 0;
+}
+
+.counter-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #e0e0e0;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #2c3e50;
+  transition: all 0.2s;
+}
+
+.counter-btn:hover:not(:disabled) {
+  border-color: #2c3e50;
+  background: #2c3e50;
+  color: #fff;
+}
+
+.counter-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.counter-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 60px;
+}
+
+.counter-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #2c3e50;
+  line-height: 1;
+}
+
+.counter-label {
+  font-size: 0.75rem;
+  color: #7f8c8d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+/* Custom Calendar */
+.custom-calendar {
+  border: 1px solid #eee;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: #2c3e50;
+}
+
+.cal-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #fff;
+}
+
+.cal-nav {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  transition: background 0.15s;
+}
+
+.cal-nav:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.cal-nav:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.cal-days-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: #f8f9fa;
+  border-bottom: 1px solid #eee;
+}
+
+.cal-day-name {
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #7f8c8d;
+  padding: 8px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding: 6px;
+  gap: 2px;
+}
+
+.cal-cell-wrapper {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cal-cell {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #2c3e50;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cal-cell:hover:not(.disabled):not(.selected) {
+  background: #f0f0f0;
+}
+
+.cal-cell.today {
+  font-weight: 700;
+  color: #3498db;
+  box-shadow: inset 0 0 0 2px #3498db;
+}
+
+.cal-cell.selected {
+  background: #2c3e50;
+  color: #fff;
+  font-weight: 700;
+}
+
+.cal-cell.selected.today {
+  box-shadow: none;
+  color: #fff;
+}
+
+.cal-cell.disabled {
+  color: #ccc;
+  cursor: not-allowed;
+}
+
+.cal-cell.empty {
+  cursor: default;
+}
+
+/* Time Slots */
+.time-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.time-slot {
+  padding: 10px 0;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #2c3e50;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.time-slot:hover:not(.disabled):not(.selected) {
+  border-color: #2c3e50;
+  background: #f8f9fa;
+}
+
+.time-slot.selected {
+  background: #2c3e50;
+  color: #fff;
+  border-color: #2c3e50;
+  font-weight: 700;
+}
+
+.time-slot.disabled {
+  color: #ccc;
+  border-color: #f0f0f0;
+  background: #fafafa;
+  cursor: not-allowed;
+}
+
 .form-group {
   margin-bottom: 16px;
 }
@@ -646,6 +873,16 @@
 .past-badge {
   background: #e2e3e5;
   color: #6c757d;
+}
+
+.cancelled-badge {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.complete-badge {
+  background: #d4edda;
+  color: #155724;
 }
 
 .expand-hint {
@@ -1218,6 +1455,14 @@
   background: #3498db;
 }
 
+.tab-badge-red {
+  background: #e74c3c;
+}
+
+.tab-badge-green {
+  background: #27ae60;
+}
+
 /* Dashboard list */
 .dashboard-section {
   display: flex;
@@ -1294,6 +1539,44 @@
   background: #3498db;
 }
 
+.guest-avatar-red {
+  background: #e74c3c;
+}
+
+.guest-avatar-green {
+  background: #27ae60;
+}
+
+.completed-card {
+  border-left: 3px solid #27ae60;
+}
+
+.cancelled-card {
+  border-left: 3px solid #e74c3c;
+  opacity: 0.85;
+}
+
+.date-group-header {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #2c3e50;
+  padding: 12px 0 6px 0;
+  margin-top: 8px;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 10px;
+}
+
+.date-group-header:first-child {
+  margin-top: 0;
+}
+
+.cancelled-notice {
+  font-size: 0.85rem;
+  color: #7f8c8d;
+  margin: 0 0 16px 0;
+  font-style: italic;
+}
+
 .dashboard-card-guest strong {
   display: block;
   color: #2c3e50;
@@ -1329,6 +1612,11 @@
 .status-arrived {
   background: #d4edda;
   color: #155724;
+}
+
+.status-cancelled {
+  background: #f8d7da;
+  color: #721c24;
 }
 
 /* Info chips */

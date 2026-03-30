@@ -7,7 +7,7 @@ const API_URL = 'http://localhost:3001/api';
 function ProfilePage() {
   const { user, token, logout } = useAuth();
   const navigate = useNavigate();
-  const [reservations, setReservations] = useState({ active: [], past: [] });
+  const [reservations, setReservations] = useState({ active: [], past: [], cancelled: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -121,11 +121,15 @@ function ProfilePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to cancel');
 
-      // Remove from local state
-      setReservations(prev => ({
-        ...prev,
-        active: prev.active.filter(r => r.id !== id)
-      }));
+      // Move to cancelled reservations
+      setReservations(prev => {
+        const cancelledItem = prev.active.find(r => r.id === id);
+        return {
+          ...prev,
+          active: prev.active.filter(r => r.id !== id),
+          cancelled: cancelledItem ? [{ ...cancelledItem, status: 'cancelled' }, ...prev.cancelled] : prev.cancelled
+        };
+      });
       setExpandedId(null);
       setConfirmCancelId(null);
     } catch (err) {
@@ -173,10 +177,21 @@ function ProfilePage() {
                 </svg>
                 {reservation.num_people} {reservation.num_people === 1 ? 'person' : 'people'}
               </span>
+              {reservation.assigned_table && (
+                <span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <line x1="3" y1="9" x2="21" y2="9" />
+                  </svg>
+                  Table {reservation.assigned_table}
+                </span>
+              )}
             </div>
             <div className="reservation-badge-row">
-              {isPast && <span className="reservation-badge past-badge">Completed</span>}
-              {!isPast && <span className="reservation-badge active-badge">Upcoming</span>}
+              {reservation.status === 'cancelled' && <span className="reservation-badge cancelled-badge">Cancelled</span>}
+              {isPast && reservation.status === 'arrived' && <span className="reservation-badge complete-badge">Complete</span>}
+              {isPast && reservation.status !== 'cancelled' && reservation.status !== 'arrived' && <span className="reservation-badge past-badge">Completed</span>}
+              {!isPast && reservation.status !== 'cancelled' && <span className="reservation-badge active-badge">Upcoming</span>}
               {!isPast && (
                 <span className="expand-hint">
                   {isExpanded ? 'Click to collapse' : 'Click to edit'}
@@ -297,6 +312,22 @@ function ProfilePage() {
               ) : (
                 <div className="reservations-list">
                   {reservations.past.map(r => (
+                    <ReservationCard key={r.id} reservation={r} isPast={true} />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Cancelled Reservations */}
+            <div className="reservations-section">
+              <h2>Cancelled Reservations ({reservations.cancelled.length})</h2>
+              {reservations.cancelled.length === 0 ? (
+                <div className="empty-reservations">
+                  <p>No cancelled reservations.</p>
+                </div>
+              ) : (
+                <div className="reservations-list">
+                  {reservations.cancelled.map(r => (
                     <ReservationCard key={r.id} reservation={r} isPast={true} />
                   ))}
                 </div>

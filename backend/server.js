@@ -44,6 +44,17 @@ app.put('/api/restaurant/reservations/:id/decline', requireRestaurantOwner, Rest
 app.put('/api/restaurant/reservations/:id/status', requireRestaurantOwner, RestaurantAdminController.updateReservationStatus);
 app.put('/api/restaurant/reservations/:id', requireRestaurantOwner, RestaurantAdminController.modifyReservation);
 
+// Clean up expired cancelled reservations (older than 15 days)
+const ReservationModel = require('./models/reservationModel');
+const deleted = ReservationModel.deleteExpiredCancelled();
+if (deleted > 0) console.log(`Cleaned up ${deleted} expired cancelled reservations`);
+
+// Run cleanup daily
+setInterval(() => {
+  const d = ReservationModel.deleteExpiredCancelled();
+  if (d > 0) console.log(`Cleaned up ${d} expired cancelled reservations`);
+}, 24 * 60 * 60 * 1000);
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

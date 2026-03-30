@@ -132,7 +132,7 @@ const ReservationController = {
         return res.status(403).json({ error: 'You can only cancel your own reservations' });
       }
 
-      ReservationModel.deleteById(id);
+      ReservationModel.updateStatus(id, { status: 'cancelled', assigned_table: null });
 
       res.json({ message: 'Reservation cancelled successfully' });
     } catch (error) {

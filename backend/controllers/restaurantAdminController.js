@@ -118,9 +118,11 @@ const RestaurantAdminController = {
 
       const pending = ReservationModel.getPendingByRestaurant(restaurant.id);
       const upcoming = ReservationModel.getUpcomingByRestaurant(restaurant.id);
+      const completed = ReservationModel.getCompletedByRestaurant(restaurant.id);
+      const cancelled = ReservationModel.getCancelledByRestaurant(restaurant.id);
       const stats = ReservationModel.getStatsByRestaurant(restaurant.id);
 
-      res.json({ restaurant, pending, upcoming, stats });
+      res.json({ restaurant, pending, upcoming, completed, cancelled, stats });
     } catch (error) {
       console.error('Dashboard error:', error);
       res.status(500).json({ error: 'Failed to load dashboard' });

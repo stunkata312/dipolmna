@@ -35,7 +35,7 @@ const ReservationModel = {
       SELECT r.*, u.name AS user_name
       FROM reservations r
       LEFT JOIN users u ON r.user_id = u.id
-      WHERE r.restaurant_id = ? AND r.status IN ('confirmed', 'arrived') AND r.date >= ?
+      WHERE r.restaurant_id = ? AND r.status = 'confirmed' AND r.date >= ?
       ORDER BY r.date ASC, r.time ASC
     `).all(restaurantId, today);
   },
@@ -65,13 +65,47 @@ const ReservationModel = {
   },
 
   updateStatus(id, { status, assigned_table }) {
-    db.prepare('UPDATE reservations SET status = ?, assigned_table = ? WHERE id = ?')
-      .run(status, assigned_table || null, id);
+    if (status === 'cancelled') {
+      db.prepare('UPDATE reservations SET status = ?, assigned_table = ?, cancelled_at = datetime(\'now\') WHERE id = ?')
+        .run(status, assigned_table || null, id);
+    } else {
+      db.prepare('UPDATE reservations SET status = ?, assigned_table = ?, cancelled_at = NULL WHERE id = ?')
+        .run(status, assigned_table || null, id);
+    }
     return this.getById(id);
   },
 
   deleteById(id) {
     db.prepare('DELETE FROM reservations WHERE id = ?').run(id);
+  },
+
+  getCompletedByRestaurant(restaurantId) {
+    return db.prepare(`
+      SELECT r.*, u.name AS user_name
+      FROM reservations r
+      LEFT JOIN users u ON r.user_id = u.id
+      WHERE r.restaurant_id = ? AND r.status = 'arrived'
+      ORDER BY r.date DESC, r.time DESC
+    `).all(restaurantId);
+  },
+
+  getCancelledByRestaurant(restaurantId) {
+    return db.prepare(`
+      SELECT r.*, u.name AS user_name
+      FROM reservations r
+      LEFT JOIN users u ON r.user_id = u.id
+      WHERE r.restaurant_id = ? AND r.status = 'cancelled'
+      ORDER BY r.cancelled_at DESC
+    `).all(restaurantId);
+  },
+
+  deleteExpiredCancelled() {
+    const result = db.prepare(`
+      DELETE FROM reservations
+      WHERE status = 'cancelled' AND cancelled_at IS NOT NULL
+        AND cancelled_at <= datetime('now', '-15 days')
+    `).run();
+    return result.changes;
   },
 
   getStatsByRestaurant(restaurantId) {

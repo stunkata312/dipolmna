@@ -32,11 +32,41 @@ function RestaurantDashboardPage() {
       return;
     }
     fetchDashboard();
+
+    // Re-fetch every 60 seconds so date labels and data stay current
+    const interval = setInterval(fetchDashboard, 60000);
+    return () => clearInterval(interval);
   }, [user, navigate, fetchDashboard]);
 
   const formatDate = (dateStr) => {
     const d = new Date(dateStr + 'T00:00:00');
     return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  };
+
+  const getDateLabel = (dateStr) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const d = new Date(dateStr + 'T00:00:00');
+    const formatted = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    if (d.getTime() === today.getTime()) return `Today — ${formatted}`;
+    if (d.getTime() === tomorrow.getTime()) return `Tomorrow — ${formatted}`;
+    return formatted;
+  };
+
+  const groupByDate = (reservations) => {
+    const groups = {};
+    for (const r of reservations) {
+      const key = r.date;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(r);
+    }
+    return Object.entries(groups).map(([date, items]) => ({
+      date,
+      label: getDateLabel(date),
+      items
+    }));
   };
 
   const formatDateTime = (dateStr) => {
@@ -98,7 +128,7 @@ function RestaurantDashboardPage() {
   if (loading) return <div className="loading">Loading dashboard...</div>;
   if (error) return <div className="error-message">{error}</div>;
 
-  const { restaurant, pending, upcoming, stats } = data;
+  const { restaurant, pending, upcoming, completed, cancelled, stats } = data;
   const noShowRate = stats.completed_total > 0
     ? Math.round((stats.no_show / stats.completed_total) * 100)
     : 0;
@@ -168,6 +198,20 @@ function RestaurantDashboardPage() {
           Upcoming Reservations
           {upcoming.length > 0 && <span className="tab-badge tab-badge-blue">{upcoming.length}</span>}
         </button>
+        <button
+          className={`dashboard-tab ${activeTab === 'completed' ? 'active' : ''}`}
+          onClick={() => setActiveTab('completed')}
+        >
+          Complete
+          {completed.length > 0 && <span className="tab-badge tab-badge-green">{completed.length}</span>}
+        </button>
+        <button
+          className={`dashboard-tab ${activeTab === 'cancelled' ? 'active' : ''}`}
+          onClick={() => setActiveTab('cancelled')}
+        >
+          Cancelled
+          {cancelled.length > 0 && <span className="tab-badge tab-badge-red">{cancelled.length}</span>}
+        </button>
       </div>
 
       {/* Pending tab */}
@@ -183,17 +227,22 @@ function RestaurantDashboardPage() {
             </div>
           ) : (
             <div className="dashboard-list">
-              {pending.map(r => (
-                <PendingCard
-                  key={r.id}
-                  reservation={r}
-                  restaurant={restaurant}
-                  onApprove={handleApprove}
-                  onDecline={handleDecline}
-                  actionLoading={actionLoading}
-                  formatDate={formatDate}
-                  formatDateTime={formatDateTime}
-                />
+              {groupByDate(pending).map(group => (
+                <div key={group.date}>
+                  <div className="date-group-header">{group.label}</div>
+                  {group.items.map(r => (
+                    <PendingCard
+                      key={r.id}
+                      reservation={r}
+                      restaurant={restaurant}
+                      onApprove={handleApprove}
+                      onDecline={handleDecline}
+                      actionLoading={actionLoading}
+                      formatDate={formatDate}
+                      formatDateTime={formatDateTime}
+                    />
+                  ))}
+                </div>
               ))}
             </div>
           )}
@@ -215,18 +264,173 @@ function RestaurantDashboardPage() {
             </div>
           ) : (
             <div className="dashboard-list">
-              {upcoming.map(r => (
-                <UpcomingCard
-                  key={r.id}
-                  reservation={r}
-                  restaurant={restaurant}
-                  onStatusUpdate={handleStatusUpdate}
-                  actionLoading={actionLoading}
-                  formatDate={formatDate}
-                />
+              {groupByDate(upcoming).map(group => (
+                <div key={group.date}>
+                  <div className="date-group-header">{group.label}</div>
+                  {group.items.map(r => (
+                    <UpcomingCard
+                      key={r.id}
+                      reservation={r}
+                      restaurant={restaurant}
+                      onStatusUpdate={handleStatusUpdate}
+                      actionLoading={actionLoading}
+                      formatDate={formatDate}
+                    />
+                  ))}
+                </div>
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Complete tab */}
+      {activeTab === 'completed' && (
+        <div className="dashboard-section">
+          {completed.length === 0 ? (
+            <div className="dashboard-empty">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+              <p>No completed reservations yet</p>
+            </div>
+          ) : (
+            <div className="dashboard-list">
+              {groupByDate(completed).map(group => (
+                <div key={group.date}>
+                  <div className="date-group-header">{group.label}</div>
+                  {group.items.map(r => (
+                    <CompletedCard key={r.id} reservation={r} formatDate={formatDate} />
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Cancelled tab */}
+      {activeTab === 'cancelled' && (
+        <div className="dashboard-section">
+          {cancelled.length === 0 ? (
+            <div className="dashboard-empty">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="15" y1="9" x2="9" y2="15" />
+                <line x1="9" y1="9" x2="15" y2="15" />
+              </svg>
+              <p>No cancelled reservations</p>
+            </div>
+          ) : (
+            <>
+              <p className="cancelled-notice">Cancelled reservations are automatically deleted after 15 days.</p>
+              <div className="dashboard-list">
+                {groupByDate(cancelled).map(group => (
+                  <div key={group.date}>
+                    <div className="date-group-header">{group.label}</div>
+                    {group.items.map(r => (
+                      <CancelledCard key={r.id} reservation={r} formatDate={formatDate} />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CompletedCard({ reservation: r, formatDate }) {
+  return (
+    <div className="dashboard-card completed-card">
+      <div className="dashboard-card-header">
+        <div className="dashboard-card-guest">
+          <div className="guest-avatar guest-avatar-green">{r.name.charAt(0).toUpperCase()}</div>
+          <div>
+            <strong>{r.name}</strong>
+            <span className="guest-contact">{r.email}{r.phone ? ` · ${r.phone}` : ''}</span>
+          </div>
+        </div>
+        <span className="res-status-badge status-arrived">Arrived</span>
+      </div>
+
+      <div className="dashboard-card-info">
+        <span className="info-chip">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+          {formatDate(r.date)} at {r.time}
+        </span>
+        <span className="info-chip">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+          </svg>
+          {r.num_people} {r.num_people === 1 ? 'person' : 'people'}
+        </span>
+        {r.assigned_table && (
+          <span className="info-chip info-chip-table">Table {r.assigned_table}</span>
+        )}
+      </div>
+
+      {r.notes && (
+        <div className="dashboard-card-notes">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          <em>{r.notes}</em>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CancelledCard({ reservation: r, formatDate }) {
+  const cancelledDate = r.cancelled_at
+    ? new Date(r.cancelled_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null;
+
+  return (
+    <div className="dashboard-card cancelled-card">
+      <div className="dashboard-card-header">
+        <div className="dashboard-card-guest">
+          <div className="guest-avatar guest-avatar-red">{r.name.charAt(0).toUpperCase()}</div>
+          <div>
+            <strong>{r.name}</strong>
+            <span className="guest-contact">{r.email}{r.phone ? ` · ${r.phone}` : ''}</span>
+          </div>
+        </div>
+        <span className="res-status-badge status-cancelled">Cancelled</span>
+      </div>
+
+      <div className="dashboard-card-info">
+        <span className="info-chip">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+          {formatDate(r.date)} at {r.time}
+        </span>
+        <span className="info-chip">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+          </svg>
+          {r.num_people} {r.num_people === 1 ? 'person' : 'people'}
+        </span>
+        {cancelledDate && (
+          <span className="info-chip info-chip-muted">Cancelled on {cancelledDate}</span>
+        )}
+      </div>
+
+      {r.notes && (
+        <div className="dashboard-card-notes">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          <em>{r.notes}</em>
         </div>
       )}
     </div>
@@ -342,9 +546,7 @@ function UpcomingCard({ reservation: r, onStatusUpdate, actionLoading, formatDat
             <span className="guest-contact">{r.email}{r.phone ? ` · ${r.phone}` : ''}</span>
           </div>
         </div>
-        <span className={`res-status-badge ${r.status === 'arrived' ? 'status-arrived' : 'status-confirmed'}`}>
-          {r.status === 'arrived' ? 'Arrived' : 'Confirmed'}
-        </span>
+        <span className="res-status-badge status-confirmed">Confirmed</span>
       </div>
 
       <div className="dashboard-card-info">
@@ -376,7 +578,6 @@ function UpcomingCard({ reservation: r, onStatusUpdate, actionLoading, formatDat
       )}
 
       <div className="dashboard-card-actions">
-        {r.status !== 'arrived' && (
           <button
             className="arrived-btn"
             onClick={() => onStatusUpdate(r.id, 'arrived')}
@@ -384,28 +585,27 @@ function UpcomingCard({ reservation: r, onStatusUpdate, actionLoading, formatDat
           >
             {isArriving ? '...' : '✓ Arrived'}
           </button>
-        )}
-        <button
-          className="noshow-btn"
-          onClick={() => onStatusUpdate(r.id, 'no_show')}
-          disabled={isArriving || isNoShow || isCancelling}
-        >
-          {isNoShow ? '...' : 'No-show'}
-        </button>
-        <button
-          className="modify-toggle-btn"
-          onClick={() => setShowModify(s => !s)}
-        >
-          {showModify ? 'Hide' : 'Modify'}
-        </button>
-        <button
-          className="decline-btn"
-          onClick={() => onStatusUpdate(r.id, 'cancelled')}
-          disabled={isArriving || isNoShow || isCancelling}
-        >
-          {isCancelling ? '...' : 'Cancel'}
-        </button>
-      </div>
+          <button
+            className="noshow-btn"
+            onClick={() => onStatusUpdate(r.id, 'no_show')}
+            disabled={isArriving || isNoShow || isCancelling}
+          >
+            {isNoShow ? '...' : 'No-show'}
+          </button>
+          <button
+            className="modify-toggle-btn"
+            onClick={() => setShowModify(s => !s)}
+          >
+            {showModify ? 'Hide' : 'Modify'}
+          </button>
+          <button
+            className="decline-btn"
+            onClick={() => onStatusUpdate(r.id, 'cancelled')}
+            disabled={isArriving || isNoShow || isCancelling}
+          >
+            {isCancelling ? '...' : 'Cancel'}
+          </button>
+        </div>
 
       {showModify && (
         <ModifyForm reservationId={r.id} current={r} onDone={() => setShowModify(false)} />

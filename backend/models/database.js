@@ -54,6 +54,7 @@ db.exec(`
     notes TEXT,
     status TEXT NOT NULL DEFAULT 'pending',
     assigned_table INTEGER,
+    cancelled_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (restaurant_id) REFERENCES restaurants(id)
@@ -136,6 +137,9 @@ if (!resCols.includes('status')) {
 }
 if (!resCols.includes('assigned_table')) {
   db.exec('ALTER TABLE reservations ADD COLUMN assigned_table INTEGER');
+}
+if (!resCols.includes('cancelled_at')) {
+  db.exec('ALTER TABLE reservations ADD COLUMN cancelled_at DATETIME');
 }
 
 module.exports = db;
