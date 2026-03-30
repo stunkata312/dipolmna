@@ -888,6 +888,16 @@
   color: #fff;
   border: none;
   border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.map-popup-btn:hover {
+  background: #34495e;
+}
+
 /* Header right side */
 .header-right {
   display: flex;
@@ -1447,10 +1457,6 @@
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
-}
-
-.map-popup-btn:hover {
-  background: #34495e;
 }
 
 .arrived-btn:hover { background: #219a52; }
