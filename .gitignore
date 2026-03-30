@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build output
+frontend/build/
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Environment
+.env
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Claude
+.claude/
