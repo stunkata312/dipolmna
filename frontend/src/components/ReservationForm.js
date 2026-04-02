@@ -7,15 +7,33 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-// Generate time slots from 10:00 to 23:00 in 30-min intervals
-const TIME_SLOTS = [];
-for (let h = 10; h <= 23; h++) {
-  TIME_SLOTS.push(`${String(h).padStart(2, '0')}:00`);
-  if (h < 23) TIME_SLOTS.push(`${String(h).padStart(2, '0')}:30`);
+// Generate time slots for a given range in 30-min intervals
+function generateTimeSlots(startTime, endTime) {
+  const [startH, startM] = (startTime || '10:00').split(':').map(Number);
+  const [endH] = (endTime || '23:00').split(':').map(Number);
+  const slots = [];
+  for (let h = startH; h <= endH; h++) {
+    if (h === startH && startM > 0) {
+      slots.push(`${String(h).padStart(2, '0')}:30`);
+    } else {
+      slots.push(`${String(h).padStart(2, '0')}:00`);
+      if (h < endH) slots.push(`${String(h).padStart(2, '0')}:30`);
+    }
+  }
+  return slots;
 }
 
-function ReservationForm({ restaurantId }) {
+function ReservationForm({ restaurantId, restaurant }) {
   const { user } = useAuth();
+
+  // Parse restaurant schedule config
+  let closedDays = [];
+  let specialClosures = [];
+  try { closedDays = JSON.parse(restaurant?.closed_days || '[]'); } catch {}
+  try { specialClosures = JSON.parse(restaurant?.special_closures || '[]'); } catch {}
+  const closureDates = specialClosures.map(c => c.date);
+  const TIME_SLOTS = generateTimeSlots(restaurant?.reservation_start_time, restaurant?.reservation_end_time);
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -28,6 +46,7 @@ function ReservationForm({ restaurantId }) {
   const [success, setSuccess] = useState(null);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
 
   // Calendar state
   const today = new Date();
@@ -129,11 +148,21 @@ function ReservationForm({ restaurantId }) {
 
   const selectDate = (day) => {
     const date = new Date(calYear, calMonth, day);
-    if (date < today) return;
+    if (date < today || isClosed(day)) return;
     const yyyy = calYear;
     const mm = String(calMonth + 1).padStart(2, '0');
     const dd = String(day).padStart(2, '0');
-    setFormData({ ...formData, date: `${yyyy}-${mm}-${dd}` });
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+    const updates = { ...formData, date: dateStr };
+    // Clear selected time if it's now in the past for today
+    if (isToday(day) && formData.time) {
+      const now = new Date();
+      const [h, m] = formData.time.split(':').map(Number);
+      if (h < now.getHours() || (h === now.getHours() && m <= now.getMinutes())) {
+        updates.time = '';
+      }
+    }
+    setFormData(updates);
   };
 
   const isSelected = (day) => {
@@ -149,6 +178,20 @@ function ReservationForm({ restaurantId }) {
   const isPast = (day) => {
     const date = new Date(calYear, calMonth, day);
     return date < today;
+  };
+
+  const isClosed = (day) => {
+    const date = new Date(calYear, calMonth, day);
+    // JS getDay: 0=Sun, convert to Mon=0 format
+    const jsDay = date.getDay();
+    const mondayBased = jsDay === 0 ? 6 : jsDay - 1;
+    if (closedDays.includes(mondayBased)) return true;
+    // Check special closures
+    const mm = String(calMonth + 1).padStart(2, '0');
+    const dd = String(day).padStart(2, '0');
+    const dateStr = `${calYear}-${mm}-${dd}`;
+    if (closureDates.includes(dateStr)) return true;
+    return false;
   };
 
   // Time slot helpers
@@ -254,9 +297,10 @@ function ReservationForm({ restaurantId }) {
                   {day ? (
                     <button
                       type="button"
-                      className={`cal-cell ${isPast(day) ? 'disabled' : ''} ${isSelected(day) ? 'selected' : ''} ${isToday(day) ? 'today' : ''}`}
+                      className={`cal-cell ${isPast(day) || isClosed(day) ? 'disabled' : ''} ${isSelected(day) ? 'selected' : ''} ${isToday(day) ? 'today' : ''} ${isClosed(day) && !isPast(day) ? 'closed' : ''}`}
                       onClick={() => selectDate(day)}
-                      disabled={isPast(day)}
+                      disabled={isPast(day) || isClosed(day)}
+                      title={isClosed(day) ? 'Closed' : ''}
                     >
                       {day}
                     </button>
@@ -271,26 +315,47 @@ function ReservationForm({ restaurantId }) {
         <div className="res-section">
           <label className="res-section-label">Select Time</label>
           <div className="time-slots-grid">
-            {TIME_SLOTS.map(slot => (
+            {TIME_SLOTS.filter(slot => !isTimeSlotPast(slot)).map(slot => (
               <button
                 key={slot}
                 type="button"
-                className={`time-slot ${formData.time === slot ? 'selected' : ''} ${isTimeSlotPast(slot) ? 'disabled' : ''}`}
-                onClick={() => !isTimeSlotPast(slot) && setFormData({ ...formData, time: slot })}
-                disabled={isTimeSlotPast(slot)}
+                className={`time-slot ${formData.time === slot ? 'selected' : ''}`}
+                onClick={() => setFormData({ ...formData, time: slot })}
               >
                 {slot}
               </button>
             ))}
+            {TIME_SLOTS.every(slot => isTimeSlotPast(slot)) && formData.date && (
+              <p className="no-slots-msg">No available time slots for today</p>
+            )}
           </div>
         </div>
 
-        {/* Notes */}
+        {/* Notes - collapsible */}
         <div className="res-section">
-          <div className="form-group">
-            <label htmlFor="notes">Special Requests (optional)</label>
-            <input type="text" id="notes" name="notes" value={formData.notes} onChange={handleChange} placeholder="e.g. birthday, allergy, high chair" />
-          </div>
+          <button
+            type="button"
+            className="notes-toggle"
+            onClick={() => setShowNotes(s => !s)}
+          >
+            <span>Special Requests (optional)</span>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              className={`notes-arrow ${showNotes ? 'open' : ''}`}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {showNotes && (
+            <div className="form-group" style={{ marginTop: 8 }}>
+              <input type="text" id="notes" name="notes" value={formData.notes} onChange={handleChange} placeholder="e.g. birthday, allergy, high chair" />
+            </div>
+          )}
         </div>
 
         <button type="submit" className="submit-btn" disabled={submitting}>

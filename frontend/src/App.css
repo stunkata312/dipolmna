@@ -620,6 +620,42 @@
   border-color: #3498db;
 }
 
+/* Notes toggle */
+.notes-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  color: #555;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.notes-toggle:hover {
+  border-color: #3498db;
+}
+
+.notes-arrow {
+  transition: transform 0.2s ease;
+}
+
+.notes-arrow.open {
+  transform: rotate(180deg);
+}
+
+.no-slots-msg {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: #999;
+  font-size: 0.9rem;
+  padding: 12px 0;
+}
+
 .submit-btn {
   width: 100%;
   padding: 12px;
@@ -640,6 +676,150 @@
 .submit-btn:disabled {
   background-color: #95a5a6;
   cursor: not-allowed;
+}
+
+/* Schedule config */
+.schedule-section {
+  margin-bottom: 20px;
+}
+
+.schedule-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 4px;
+}
+
+.schedule-hint {
+  font-size: 0.85rem;
+  color: #888;
+  margin-bottom: 10px;
+}
+
+.schedule-time-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.schedule-time-row .form-group {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.schedule-time-separator {
+  padding-bottom: 10px;
+  color: #666;
+  font-weight: 500;
+}
+
+.closed-days-grid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.closed-day-btn {
+  padding: 8px 14px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+  color: #555;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.closed-day-btn:hover {
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+
+.closed-day-btn.closed {
+  background: #e74c3c;
+  border-color: #e74c3c;
+  color: #fff;
+}
+
+.closure-add-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  margin-bottom: 10px;
+}
+
+.closure-add-row input[type="date"],
+.closure-add-row input[type="text"] {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.closure-add-btn {
+  padding: 8px 16px;
+  background: #2c3e50;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.closure-add-btn:disabled {
+  background: #95a5a6;
+  cursor: not-allowed;
+}
+
+.closures-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.closure-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #f8f8f8;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.closure-date {
+  font-weight: 500;
+  color: #333;
+}
+
+.closure-reason {
+  color: #888;
+  font-style: italic;
+}
+
+.closure-remove-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: #e74c3c;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.closure-remove-btn:hover {
+  color: #c0392b;
+}
+
+/* Calendar closed day styling */
+.cal-cell.closed {
+  text-decoration: line-through;
+  color: #ccc;
 }
 
 /* Messages */

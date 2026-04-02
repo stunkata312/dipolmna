@@ -53,7 +53,7 @@ function RestaurantPage() {
 
         {/* Right Section - 25% */}
         <div className="restaurant-detail-right">
-          <ReservationForm restaurantId={restaurant.id} />
+          <ReservationForm restaurantId={restaurant.id} restaurant={restaurant} />
         </div>
       </div>
     </div>

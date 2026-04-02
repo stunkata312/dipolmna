@@ -29,26 +29,34 @@ const RestaurantModel = {
     return db.prepare('SELECT * FROM restaurants WHERE owner_id = ?').get(ownerId);
   },
 
-  create({ owner_id, name, address, description, phone, opening_hours, num_tables, seats_per_table, max_guests, image_url }) {
+  create({ owner_id, name, address, description, phone, opening_hours, num_tables, seats_per_table, max_guests, image_url,
+           reservation_start_time, reservation_end_time, closed_days, special_closures }) {
     const stmt = db.prepare(`
-      INSERT INTO restaurants (owner_id, name, address, description, phone, opening_hours, num_tables, seats_per_table, max_guests, image_url)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO restaurants (owner_id, name, address, description, phone, opening_hours, num_tables, seats_per_table, max_guests, image_url,
+        reservation_start_time, reservation_end_time, closed_days, special_closures)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const result = stmt.run(
       owner_id, name, address, description || null, phone || null,
       opening_hours || null, num_tables || 10, seats_per_table || 4,
-      max_guests || 40, image_url || null
+      max_guests || 40, image_url || null,
+      reservation_start_time || '10:00', reservation_end_time || '23:00',
+      closed_days || '[]', special_closures || '[]'
     );
     return this.getById(result.lastInsertRowid);
   },
 
-  update(id, { name, address, description, phone, opening_hours, num_tables, seats_per_table, max_guests, image_url }) {
+  update(id, { name, address, description, phone, opening_hours, num_tables, seats_per_table, max_guests, image_url,
+               reservation_start_time, reservation_end_time, closed_days, special_closures }) {
     db.prepare(`
       UPDATE restaurants SET name=?, address=?, description=?, phone=?, opening_hours=?,
-        num_tables=?, seats_per_table=?, max_guests=?, image_url=?
+        num_tables=?, seats_per_table=?, max_guests=?, image_url=?,
+        reservation_start_time=?, reservation_end_time=?, closed_days=?, special_closures=?
       WHERE id=?
     `).run(name, address, description || null, phone || null, opening_hours || null,
-      num_tables, seats_per_table, max_guests, image_url || null, id);
+      num_tables, seats_per_table, max_guests, image_url || null,
+      reservation_start_time || '10:00', reservation_end_time || '23:00',
+      closed_days || '[]', special_closures || '[]', id);
     return this.getById(id);
   }
 };

@@ -11,7 +11,8 @@ const RestaurantAdminController = {
       const { name, email, password, phone: ownerPhone,
               restaurant_name, address, description,
               restaurant_phone, opening_hours,
-              num_tables, seats_per_table, max_guests, image_url } = req.body;
+              num_tables, seats_per_table, max_guests, image_url,
+              reservation_start_time, reservation_end_time, closed_days, special_closures } = req.body;
 
       if (!name || !email || !password || !restaurant_name || !address) {
         return res.status(400).json({ error: 'Name, email, password, restaurant name and address are required' });
@@ -54,7 +55,11 @@ const RestaurantAdminController = {
         num_tables: num_tables ? parseInt(num_tables, 10) : 10,
         seats_per_table: seats_per_table ? parseInt(seats_per_table, 10) : 4,
         max_guests: max_guests ? parseInt(max_guests, 10) : 40,
-        image_url: image_url || null
+        image_url: image_url || null,
+        reservation_start_time: reservation_start_time || '10:00',
+        reservation_end_time: reservation_end_time || '23:00',
+        closed_days: closed_days || '[]',
+        special_closures: special_closures || '[]'
       });
 
       const token = generateToken(user);
@@ -90,7 +95,8 @@ const RestaurantAdminController = {
       if (!restaurant) {
         return res.status(404).json({ error: 'Restaurant not found' });
       }
-      const { name, address, description, phone, opening_hours, num_tables, seats_per_table, max_guests, image_url } = req.body;
+      const { name, address, description, phone, opening_hours, num_tables, seats_per_table, max_guests, image_url,
+              reservation_start_time, reservation_end_time, closed_days, special_closures } = req.body;
       if (!name || !address) {
         return res.status(400).json({ error: 'Name and address are required' });
       }
@@ -99,7 +105,11 @@ const RestaurantAdminController = {
         num_tables: parseInt(num_tables, 10) || restaurant.num_tables,
         seats_per_table: parseInt(seats_per_table, 10) || restaurant.seats_per_table,
         max_guests: parseInt(max_guests, 10) || restaurant.max_guests,
-        image_url
+        image_url,
+        reservation_start_time: reservation_start_time || restaurant.reservation_start_time,
+        reservation_end_time: reservation_end_time || restaurant.reservation_end_time,
+        closed_days: closed_days !== undefined ? closed_days : restaurant.closed_days,
+        special_closures: special_closures !== undefined ? special_closures : restaurant.special_closures
       });
       res.json(updated);
     } catch (error) {

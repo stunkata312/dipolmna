@@ -12,12 +12,17 @@ function RestaurantSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [newClosure, setNewClosure] = useState({ date: '', reason: '' });
 
   useEffect(() => {
     if (!user || user.role !== 'restaurant') { navigate('/'); return; }
     fetch(`${API_URL}/restaurant/me`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => {
+        let closedDays = [];
+        let specialClosures = [];
+        try { closedDays = JSON.parse(d.closed_days || '[]'); } catch {}
+        try { specialClosures = JSON.parse(d.special_closures || '[]'); } catch {}
         setForm({
           name: d.name || '',
           address: d.address || '',
@@ -27,7 +32,11 @@ function RestaurantSettingsPage() {
           image_url: d.image_url || '',
           num_tables: String(d.num_tables || 10),
           seats_per_table: String(d.seats_per_table || 4),
-          max_guests: String(d.max_guests || 40)
+          max_guests: String(d.max_guests || 40),
+          reservation_start_time: d.reservation_start_time || '10:00',
+          reservation_end_time: d.reservation_end_time || '23:00',
+          closed_days: closedDays,
+          special_closures: specialClosures
         });
         setLoading(false);
       })
@@ -50,7 +59,9 @@ function RestaurantSettingsPage() {
           ...form,
           num_tables: parseInt(form.num_tables, 10),
           seats_per_table: parseInt(form.seats_per_table, 10),
-          max_guests: parseInt(form.max_guests, 10)
+          max_guests: parseInt(form.max_guests, 10),
+          closed_days: JSON.stringify(form.closed_days),
+          special_closures: JSON.stringify(form.special_closures)
         })
       });
       const d = await res.json();
@@ -120,6 +131,103 @@ function RestaurantSettingsPage() {
             </div>
             <div className="capacity-summary">
               Total capacity: {parseInt(form.num_tables, 10) * parseInt(form.seats_per_table, 10) || 0} seats
+            </div>
+
+            <h2 className="settings-section-title">Reservation Schedule</h2>
+            <div className="schedule-section">
+              <h3 className="schedule-section-title">Reservation Hours</h3>
+              <p className="schedule-hint">Set the time window when customers can book reservations.</p>
+              <div className="schedule-time-row">
+                <div className="form-group">
+                  <label>From</label>
+                  <input
+                    type="time"
+                    value={form.reservation_start_time}
+                    onChange={e => setForm({ ...form, reservation_start_time: e.target.value })}
+                  />
+                </div>
+                <span className="schedule-time-separator">to</span>
+                <div className="form-group">
+                  <label>Until</label>
+                  <input
+                    type="time"
+                    value={form.reservation_end_time}
+                    onChange={e => setForm({ ...form, reservation_end_time: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="schedule-section">
+              <h3 className="schedule-section-title">Weekly Closed Days</h3>
+              <p className="schedule-hint">Select the days your restaurant is closed every week.</p>
+              <div className="closed-days-grid">
+                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day, i) => (
+                  <button
+                    key={day}
+                    type="button"
+                    className={`closed-day-btn ${form.closed_days.includes(i) ? 'closed' : ''}`}
+                    onClick={() => {
+                      const days = form.closed_days.includes(i)
+                        ? form.closed_days.filter(d => d !== i)
+                        : [...form.closed_days, i];
+                      setForm({ ...form, closed_days: days });
+                    }}
+                  >
+                    {day.slice(0, 3)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="schedule-section">
+              <h3 className="schedule-section-title">Special Closures</h3>
+              <p className="schedule-hint">Add specific dates when your restaurant will be closed (holidays, events, etc.).</p>
+              <div className="closure-add-row">
+                <input
+                  type="date"
+                  value={newClosure.date}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={e => setNewClosure({ ...newClosure, date: e.target.value })}
+                />
+                <input
+                  type="text"
+                  placeholder="Reason (optional)"
+                  value={newClosure.reason}
+                  onChange={e => setNewClosure({ ...newClosure, reason: e.target.value })}
+                />
+                <button
+                  type="button"
+                  className="closure-add-btn"
+                  onClick={() => {
+                    if (!newClosure.date) return;
+                    setForm({ ...form, special_closures: [...form.special_closures, { ...newClosure }] });
+                    setNewClosure({ date: '', reason: '' });
+                  }}
+                  disabled={!newClosure.date}
+                >
+                  + Add
+                </button>
+              </div>
+              {form.special_closures.length > 0 && (
+                <div className="closures-list">
+                  {form.special_closures.map((c, i) => (
+                    <div key={i} className="closure-item">
+                      <span className="closure-date">
+                        {new Date(c.date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                      {c.reason && <span className="closure-reason">{c.reason}</span>}
+                      <button
+                        type="button"
+                        className="closure-remove-btn"
+                        onClick={() => setForm({ ...form, special_closures: form.special_closures.filter((_, idx) => idx !== i) })}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <button type="submit" className="submit-btn" disabled={saving} style={{ marginTop: 24 }}>

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import StarRating from '../components/StarRating';
+import { useAuth } from '../context/AuthContext';
 import 'leaflet/dist/leaflet.css';
 
 // Fix default Leaflet marker icons (they break with webpack)
@@ -17,12 +18,20 @@ const API_URL = 'http://localhost:3001/api';
 
 function HomePage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [restaurants, setRestaurants] = useState([]);
   const [nearbyRestaurants, setNearbyRestaurants] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
   const [locationError, setLocationError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Redirect restaurant owners to dashboard
+  useEffect(() => {
+    if (user && user.role === 'restaurant') {
+      navigate('/restaurant/dashboard');
+    }
+  }, [user, navigate]);
 
   // Fetch all restaurants
   useEffect(() => {

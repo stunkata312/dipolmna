@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import UserMenu from './components/UserMenu';
 import LoginModal from './components/LoginModal';
 import HomePage from './pages/HomePage';
@@ -16,11 +16,13 @@ const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
 
 function AppContent() {
   const [showLogin, setShowLogin] = useState(false);
+  const { user } = useAuth();
+  const logoTo = user?.role === 'restaurant' ? '/restaurant/dashboard' : '/';
 
   return (
     <div className="App">
       <header className="app-header">
-        <Link to="/" className="logo">RestaurantBook</Link>
+        <Link to={logoTo} className="logo">RestaurantBook</Link>
         <div className="header-right">
           <Link to="/restaurant/register" className="header-restaurant-link">For Restaurants</Link>
           <UserMenu onLoginClick={() => setShowLogin(true)} />

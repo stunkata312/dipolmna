@@ -117,6 +117,18 @@ if (!restCols.includes('seats_per_table')) {
 if (!restCols.includes('max_guests')) {
   db.exec('ALTER TABLE restaurants ADD COLUMN max_guests INTEGER DEFAULT 40');
 }
+if (!restCols.includes('reservation_start_time')) {
+  db.exec("ALTER TABLE restaurants ADD COLUMN reservation_start_time TEXT DEFAULT '10:00'");
+}
+if (!restCols.includes('reservation_end_time')) {
+  db.exec("ALTER TABLE restaurants ADD COLUMN reservation_end_time TEXT DEFAULT '23:00'");
+}
+if (!restCols.includes('closed_days')) {
+  db.exec("ALTER TABLE restaurants ADD COLUMN closed_days TEXT DEFAULT '[]'");
+}
+if (!restCols.includes('special_closures')) {
+  db.exec("ALTER TABLE restaurants ADD COLUMN special_closures TEXT DEFAULT '[]'");
+}
 
 // Migrate reservations: add new columns if missing
 const resCols = db.pragma('table_info(reservations)').map(c => c.name);

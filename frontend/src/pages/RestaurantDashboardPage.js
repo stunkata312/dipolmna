@@ -128,10 +128,11 @@ function RestaurantDashboardPage() {
   if (loading) return <div className="loading">Loading dashboard...</div>;
   if (error) return <div className="error-message">{error}</div>;
 
-  const { restaurant, pending, upcoming, completed, cancelled, stats } = data;
+  const { restaurant, pending = [], upcoming = [], completed = [], cancelled = [], stats = {} } = data || {};
   const noShowRate = stats.completed_total > 0
     ? Math.round((stats.no_show / stats.completed_total) * 100)
     : 0;
+  if (!restaurant) return <div className="loading">Loading dashboard...</div>;
   const occupancyRate = restaurant.max_guests > 0 && upcoming.length > 0
     ? Math.min(100, Math.round((upcoming.reduce((s, r) => s + r.num_people, 0) / restaurant.max_guests) * 100))
     : 0;
