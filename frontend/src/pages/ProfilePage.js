@@ -43,9 +43,22 @@ function ProfilePage() {
     }
     fetchReservations();
 
-    // Re-fetch every 60 seconds so completed reservations move to past automatically
-    const interval = setInterval(fetchReservations, 60000);
-    return () => clearInterval(interval);
+    // Re-fetch every 60 seconds, but only when tab is visible
+    let interval = setInterval(fetchReservations, 60000);
+    const handleVisibility = () => {
+      if (document.hidden) {
+        clearInterval(interval);
+        interval = null;
+      } else {
+        fetchReservations();
+        interval = setInterval(fetchReservations, 60000);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, token, navigate]);
 

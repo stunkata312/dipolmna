@@ -143,11 +143,18 @@ function HomePage() {
             key={restaurant.id}
             className="restaurant-card"
           >
-            <img
-              src={restaurant.image_url}
-              alt={restaurant.name}
-              className="restaurant-card-image"
-            />
+            {restaurant.image_url ? (
+              <img
+                src={restaurant.image_url}
+                alt={restaurant.name}
+                className="restaurant-card-image"
+                loading="lazy"
+              />
+            ) : (
+              <div className="restaurant-card-image restaurant-card-placeholder">
+                <span>{restaurant.name.charAt(0)}</span>
+              </div>
+            )}
             <div className="restaurant-card-body">
               <h3>{restaurant.name}</h3>
               <p className="address">{restaurant.address}</p>

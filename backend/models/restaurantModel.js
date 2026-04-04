@@ -9,11 +9,19 @@ const RestaurantModel = {
     return db.prepare('SELECT * FROM restaurants WHERE id = ?').get(id);
   },
 
-  getNearby(lat, lng) {
-    // Haversine-based distance in km, computed in JS since SQLite lacks trig functions
-    const all = db.prepare('SELECT * FROM restaurants WHERE latitude IS NOT NULL AND longitude IS NOT NULL').all();
+  getNearby(lat, lng, radiusKm = 50) {
+    // Bounding box pre-filter to avoid scanning all restaurants
+    const latDelta = radiusKm / 111;
+    const lngDelta = radiusKm / (111 * Math.cos(lat * Math.PI / 180));
+    const candidates = db.prepare(
+      `SELECT * FROM restaurants
+       WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+         AND latitude BETWEEN ? AND ?
+         AND longitude BETWEEN ? AND ?`
+    ).all(lat - latDelta, lat + latDelta, lng - lngDelta, lng + lngDelta);
+
     const toRad = (deg) => deg * Math.PI / 180;
-    return all
+    return candidates
       .map(r => {
         const dLat = toRad(r.latitude - lat);
         const dLng = toRad(r.longitude - lng);
@@ -22,6 +30,7 @@ const RestaurantModel = {
         const distance = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return { ...r, distance: Math.round(distance * 100) / 100 };
       })
+      .filter(r => r.distance <= radiusKm)
       .sort((a, b) => a.distance - b.distance);
   },
 

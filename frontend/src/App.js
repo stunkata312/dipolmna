@@ -1,16 +1,17 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import UserMenu from './components/UserMenu';
 import LoginModal from './components/LoginModal';
 import HomePage from './pages/HomePage';
-import RestaurantPage from './pages/RestaurantPage';
-import ProfilePage from './pages/ProfilePage';
-import RestaurantRegisterPage from './pages/RestaurantRegisterPage';
-import RestaurantDashboardPage from './pages/RestaurantDashboardPage';
-import RestaurantSettingsPage from './pages/RestaurantSettingsPage';
 import './App.css';
+
+const RestaurantPage = lazy(() => import('./pages/RestaurantPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const RestaurantRegisterPage = lazy(() => import('./pages/RestaurantRegisterPage'));
+const RestaurantDashboardPage = lazy(() => import('./pages/RestaurantDashboardPage'));
+const RestaurantSettingsPage = lazy(() => import('./pages/RestaurantSettingsPage'));
 
 const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
 
@@ -29,14 +30,16 @@ function AppContent() {
         </div>
       </header>
       <main className="app-main">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/restaurant/register" element={<RestaurantRegisterPage />} />
-          <Route path="/restaurant/dashboard" element={<RestaurantDashboardPage />} />
-          <Route path="/restaurant/settings" element={<RestaurantSettingsPage />} />
-          <Route path="/restaurant/:id" element={<RestaurantPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-        </Routes>
+        <Suspense fallback={<div className="loading">Loading...</div>}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/restaurant/register" element={<RestaurantRegisterPage />} />
+            <Route path="/restaurant/dashboard" element={<RestaurantDashboardPage />} />
+            <Route path="/restaurant/settings" element={<RestaurantSettingsPage />} />
+            <Route path="/restaurant/:id" element={<RestaurantPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+          </Routes>
+        </Suspense>
       </main>
 
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}

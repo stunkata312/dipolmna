@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const RestaurantController = require('./controllers/restaurantController');
 const ReservationController = require('./controllers/reservationController');
 const AuthController = require('./controllers/authController');
@@ -12,6 +13,7 @@ const app = express();
 const PORT = 3001;
 
 // Middleware
+app.use(compression());
 app.use(cors());
 app.use(express.json());
 

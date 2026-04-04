@@ -33,9 +33,22 @@ function RestaurantDashboardPage() {
     }
     fetchDashboard();
 
-    // Re-fetch every 60 seconds so date labels and data stay current
-    const interval = setInterval(fetchDashboard, 60000);
-    return () => clearInterval(interval);
+    // Re-fetch every 60 seconds, but only when tab is visible
+    let interval = setInterval(fetchDashboard, 60000);
+    const handleVisibility = () => {
+      if (document.hidden) {
+        clearInterval(interval);
+        interval = null;
+      } else {
+        fetchDashboard();
+        interval = setInterval(fetchDashboard, 60000);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [user, navigate, fetchDashboard]);
 
   const formatDate = (dateStr) => {
@@ -276,6 +289,7 @@ function RestaurantDashboardPage() {
                       onStatusUpdate={handleStatusUpdate}
                       actionLoading={actionLoading}
                       formatDate={formatDate}
+                      onRefresh={fetchDashboard}
                     />
                   ))}
                 </div>
@@ -530,7 +544,7 @@ function PendingCard({ reservation: r, restaurant, onApprove, onDecline, actionL
   );
 }
 
-function UpcomingCard({ reservation: r, onStatusUpdate, actionLoading, formatDate }) {
+function UpcomingCard({ reservation: r, onStatusUpdate, actionLoading, formatDate, onRefresh }) {
   const [showModify, setShowModify] = useState(false);
 
   const isArriving = actionLoading === r.id + '-arrived';
@@ -609,13 +623,13 @@ function UpcomingCard({ reservation: r, onStatusUpdate, actionLoading, formatDat
         </div>
 
       {showModify && (
-        <ModifyForm reservationId={r.id} current={r} onDone={() => setShowModify(false)} />
+        <ModifyForm reservationId={r.id} current={r} onDone={() => setShowModify(false)} onRefresh={onRefresh} />
       )}
     </div>
   );
 }
 
-function ModifyForm({ reservationId, current, onDone }) {
+function ModifyForm({ reservationId, current, onDone, onRefresh }) {
   const { token } = useAuth();
   const [form, setForm] = useState({
     date: current.date,
@@ -644,7 +658,7 @@ function ModifyForm({ reservationId, current, onDone }) {
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || 'Failed');
       onDone();
-      window.location.reload();
+      if (onRefresh) onRefresh();
     } catch (e) {
       setErr(e.message);
     } finally {

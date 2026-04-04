@@ -154,4 +154,18 @@ if (!resCols.includes('cancelled_at')) {
   db.exec('ALTER TABLE reservations ADD COLUMN cancelled_at DATETIME');
 }
 
+// Performance indexes
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_reservations_restaurant_id ON reservations(restaurant_id);
+  CREATE INDEX IF NOT EXISTS idx_reservations_user_id ON reservations(user_id);
+  CREATE INDEX IF NOT EXISTS idx_reservations_email ON reservations(email);
+  CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(restaurant_id, status);
+  CREATE INDEX IF NOT EXISTS idx_reservations_date ON reservations(restaurant_id, date);
+  CREATE INDEX IF NOT EXISTS idx_reservations_cancelled_at ON reservations(status, cancelled_at);
+  CREATE INDEX IF NOT EXISTS idx_restaurants_owner_id ON restaurants(owner_id);
+  CREATE INDEX IF NOT EXISTS idx_restaurants_coords ON restaurants(latitude, longitude);
+  CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+  CREATE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id);
+`);
+
 module.exports = db;
