@@ -3,16 +3,18 @@ const RestaurantModel = require('../models/restaurantModel');
 const ReservationModel = require('../models/reservationModel');
 const UserModel = require('../models/userModel');
 const { generateToken } = require('../middleware/auth');
+const { geocodeAddress } = require('../middleware/geocode');
 
 const RestaurantAdminController = {
   // POST /api/restaurant/register
-  register(req, res) {
+  async register(req, res) {
     try {
       const { name, email, password, phone: ownerPhone,
               restaurant_name, address, description,
               restaurant_phone, opening_hours,
               num_tables, seats_per_table, max_guests, image_url,
-              reservation_start_time, reservation_end_time, closed_days, special_closures } = req.body;
+              reservation_start_time, reservation_end_time, closed_days, special_closures,
+              latitude: clientLat, longitude: clientLng } = req.body;
 
       if (!name || !email || !password || !restaurant_name || !address) {
         return res.status(400).json({ error: 'Name, email, password, restaurant name and address are required' });
@@ -44,6 +46,15 @@ const RestaurantAdminController = {
       UserModel.setRole(user.id, 'restaurant');
       user = UserModel.getById(user.id);
 
+      // Prefer coordinates picked by the owner on the map; fall back to geocoding the address.
+      let latitude = Number.isFinite(clientLat) ? clientLat : null;
+      let longitude = Number.isFinite(clientLng) ? clientLng : null;
+      if (latitude == null || longitude == null) {
+        const coords = await geocodeAddress(address);
+        latitude = coords?.lat ?? null;
+        longitude = coords?.lng ?? null;
+      }
+
       // Create restaurant record
       const restaurant = RestaurantModel.create({
         owner_id: user.id,
@@ -59,7 +70,9 @@ const RestaurantAdminController = {
         reservation_start_time: reservation_start_time || '10:00',
         reservation_end_time: reservation_end_time || '23:00',
         closed_days: closed_days || '[]',
-        special_closures: special_closures || '[]'
+        special_closures: special_closures || '[]',
+        latitude,
+        longitude
       });
 
       const token = generateToken(user);
@@ -89,17 +102,35 @@ const RestaurantAdminController = {
   },
 
   // PUT /api/restaurant/me  — update own restaurant
-  updateMyRestaurant(req, res) {
+  async updateMyRestaurant(req, res) {
     try {
       const restaurant = RestaurantModel.getByOwnerId(req.user.id);
       if (!restaurant) {
         return res.status(404).json({ error: 'Restaurant not found' });
       }
       const { name, address, description, phone, opening_hours, num_tables, seats_per_table, max_guests, image_url,
-              reservation_start_time, reservation_end_time, closed_days, special_closures } = req.body;
+              reservation_start_time, reservation_end_time, closed_days, special_closures,
+              latitude: clientLat, longitude: clientLng } = req.body;
       if (!name || !address) {
         return res.status(400).json({ error: 'Name and address are required' });
       }
+
+      // Prefer client-picked coordinates. Otherwise: keep current pin if address didn't change,
+      // or re-geocode when the address changed and no manual pin was provided.
+      let latitude;
+      let longitude;
+      if (Number.isFinite(clientLat) && Number.isFinite(clientLng)) {
+        latitude = clientLat;
+        longitude = clientLng;
+      } else if (address !== restaurant.address || restaurant.latitude == null || restaurant.longitude == null) {
+        const coords = await geocodeAddress(address);
+        latitude = coords?.lat ?? null;
+        longitude = coords?.lng ?? null;
+      } else {
+        latitude = restaurant.latitude;
+        longitude = restaurant.longitude;
+      }
+
       const updated = RestaurantModel.update(restaurant.id, {
         name, address, description, phone, opening_hours,
         num_tables: parseInt(num_tables, 10) || restaurant.num_tables,
@@ -109,7 +140,8 @@ const RestaurantAdminController = {
         reservation_start_time: reservation_start_time || restaurant.reservation_start_time,
         reservation_end_time: reservation_end_time || restaurant.reservation_end_time,
         closed_days: closed_days !== undefined ? closed_days : restaurant.closed_days,
-        special_closures: special_closures !== undefined ? special_closures : restaurant.special_closures
+        special_closures: special_closures !== undefined ? special_closures : restaurant.special_closures,
+        latitude, longitude
       });
       res.json(updated);
     } catch (error) {

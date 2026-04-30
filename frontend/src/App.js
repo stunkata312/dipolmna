@@ -2,8 +2,10 @@ import { useState, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import UserMenu from './components/UserMenu';
 import LoginModal from './components/LoginModal';
+import ThemeToggle from './components/ThemeToggle';
 import HomePage from './pages/HomePage';
 import './App.css';
 
@@ -23,10 +25,14 @@ function AppContent() {
   return (
     <div className="App">
       <header className="app-header">
-        <Link to={logoTo} className="logo">RestaurantBook</Link>
+        <Link to={logoTo} className="logo">
+          <img src="/logo.png" alt="TakeASeat logo" className="logo-img" />
+          <span className="logo-text">TakeASeat</span>
+        </Link>
         <div className="header-right">
           <Link to="/restaurant/register" className="header-restaurant-link">For Restaurants</Link>
           <UserMenu onLoginClick={() => setShowLogin(true)} />
+          <ThemeToggle />
         </div>
       </header>
       <main className="app-main">
@@ -50,11 +56,13 @@ function AppContent() {
 function App() {
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
-      <AuthProvider>
-        <Router>
-          <AppContent />
-        </Router>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <Router>
+            <AppContent />
+          </Router>
+        </AuthProvider>
+      </ThemeProvider>
     </GoogleOAuthProvider>
   );
 }

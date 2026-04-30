@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import LocationPicker from '../components/LocationPicker';
 
 function RestaurantRegisterPage() {
   const { restaurantRegister } = useAuth();
@@ -23,7 +24,9 @@ function RestaurantRegisterPage() {
     reservation_start_time: '10:00',
     reservation_end_time: '23:00',
     closed_days: [],
-    special_closures: []
+    special_closures: [],
+    latitude: null,
+    longitude: null
   });
   const [newClosure, setNewClosure] = useState({ date: '', reason: '' });
 
@@ -120,7 +123,7 @@ function RestaurantRegisterPage() {
       <div className="register-restaurant-container">
         <div className="register-restaurant-card">
           <h1>Register Your Restaurant</h1>
-          <p className="register-restaurant-subtitle">Join RestaurantBook and start managing your reservations</p>
+          <p className="register-restaurant-subtitle">Join TakeASeat and start managing your reservations</p>
 
           {/* Step indicator */}
           <div className="register-steps">
@@ -170,6 +173,15 @@ function RestaurantRegisterPage() {
                 <div className="form-group">
                   <label>Address</label>
                   <input type="text" name="address" value={restaurantData.address} onChange={handleRestaurantChange} placeholder="ul. Example 10, Sofia" />
+                </div>
+                <div className="form-group">
+                  <label>Pin Location on Map</label>
+                  <LocationPicker
+                    lat={restaurantData.latitude}
+                    lng={restaurantData.longitude}
+                    address={restaurantData.address}
+                    onChange={(lat, lng) => setRestaurantData(prev => ({ ...prev, latitude: lat, longitude: lng }))}
+                  />
                 </div>
                 <div className="form-group">
                   <label>Description (optional)</label>

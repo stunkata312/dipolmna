@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════
-   RestaurantBook — Neo-Noir Dining Theme
+   TakeASeat — Neo-Noir Dining Theme
    Typography: Outfit (body) + Playfair Display (display)
    ═══════════════════════════════════════════════════ */
 
@@ -10,6 +10,7 @@
   --bg-card: rgba(18, 18, 26, 0.85);
   --bg-card-solid: #16161f;
   --bg-elevated: rgba(25, 25, 38, 0.9);
+  --bg-header: rgba(22, 17, 8, 0.85);
 
   /* Glass */
   --glass-bg: rgba(255, 255, 255, 0.04);
@@ -21,15 +22,17 @@
   --accent-light: #f0c060;
   --accent-dim: rgba(232, 168, 56, 0.15);
   --accent-glow: rgba(232, 168, 56, 0.25);
+  --accent-gradient-end: #c4841c;
+  --on-accent: #0a0a0f;
 
   /* Secondary accent — cool teal */
   --teal: #38c8b0;
   --teal-dim: rgba(56, 200, 176, 0.12);
 
   /* Text */
-  --text-primary: #e8e6e1;
-  --text-secondary: rgba(232, 230, 225, 0.6);
-  --text-muted: rgba(232, 230, 225, 0.35);
+  --text-primary: #e8a838;
+  --text-secondary: rgba(232, 168, 56, 0.72);
+  --text-muted: rgba(232, 168, 56, 0.48);
 
   /* Status */
   --success: #34d399;
@@ -56,6 +59,55 @@
   /* Transitions */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Light theme overrides */
+[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f4f7ff;
+  --bg-card: rgba(255, 255, 255, 0.92);
+  --bg-card-solid: #ffffff;
+  --bg-elevated: rgba(244, 247, 255, 0.95);
+  --bg-header: rgba(235, 241, 255, 0.85);
+
+  --glass-bg: rgba(37, 99, 235, 0.05);
+  --glass-border: rgba(37, 99, 235, 0.16);
+  --glass-hover: rgba(37, 99, 235, 0.1);
+
+  --accent: #2563eb;
+  --accent-light: #3b82f6;
+  --accent-dim: rgba(37, 99, 235, 0.12);
+  --accent-glow: rgba(37, 99, 235, 0.3);
+  --accent-gradient-end: #1d4ed8;
+  --on-accent: #ffffff;
+
+  --teal: #0e7490;
+  --teal-dim: rgba(14, 116, 144, 0.12);
+
+  --text-primary: #2563eb;
+  --text-secondary: rgba(37, 99, 235, 0.72);
+  --text-muted: rgba(37, 99, 235, 0.48);
+
+  --shadow-sm: 0 2px 8px rgba(37, 99, 235, 0.08);
+  --shadow-md: 0 8px 32px rgba(37, 99, 235, 0.12);
+  --shadow-lg: 0 16px 48px rgba(37, 99, 235, 0.18);
+  --shadow-glow: 0 0 30px rgba(37, 99, 235, 0.14);
+}
+
+[data-theme="light"] body::before {
+  opacity: 0.015;
+}
+
+[data-theme="light"] body::after {
+  background: radial-gradient(ellipse, rgba(37, 99, 235, 0.08) 0%, transparent 70%);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(37, 99, 235, 0.2);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(37, 99, 235, 0.36);
 }
 
 * {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import LocationPicker from '../components/LocationPicker';
 
 const API_URL = 'http://localhost:3001/api';
 
@@ -36,7 +37,9 @@ function RestaurantSettingsPage() {
           reservation_start_time: d.reservation_start_time || '10:00',
           reservation_end_time: d.reservation_end_time || '23:00',
           closed_days: closedDays,
-          special_closures: specialClosures
+          special_closures: specialClosures,
+          latitude: d.latitude ?? null,
+          longitude: d.longitude ?? null
         });
         setLoading(false);
       })
@@ -96,6 +99,15 @@ function RestaurantSettingsPage() {
             <div className="form-group">
               <label>Address</label>
               <input type="text" name="address" value={form.address} onChange={handleChange} />
+            </div>
+            <div className="form-group">
+              <label>Pin Location on Map</label>
+              <LocationPicker
+                lat={form.latitude}
+                lng={form.longitude}
+                address={form.address}
+                onChange={(lat, lng) => setForm(prev => ({ ...prev, latitude: lat, longitude: lng }))}
+              />
             </div>
             <div className="form-group">
               <label>Description</label>
