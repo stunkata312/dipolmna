@@ -1,55 +1,34 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
+import { apiFetch } from '../api/client';
 
-const API_URL = 'http://localhost:3001/api';
+const DASHBOARD_KEY = ['restaurant', 'dashboard'];
 
 function RestaurantDashboardPage() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('pending');
   const [actionLoading, setActionLoading] = useState(null);
   const [actionError, setActionError] = useState(null);
 
-  const fetchDashboard = useCallback(() => {
-    fetch(`${API_URL}/restaurant/dashboard`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to load dashboard');
-        return res.json();
-      })
-      .then(d => { setData(d); setLoading(false); })
-      .catch(err => { setError(err.message); setLoading(false); });
-  }, [token]);
+  const isOwner = !!user && user.role === 'restaurant';
 
   useEffect(() => {
-    if (!user || user.role !== 'restaurant') {
-      navigate('/');
-      return;
-    }
-    fetchDashboard();
+    if (user && user.role !== 'restaurant') navigate('/');
+  }, [user, navigate]);
 
-    // Re-fetch every 60 seconds, but only when tab is visible
-    let interval = setInterval(fetchDashboard, 60000);
-    const handleVisibility = () => {
-      if (document.hidden) {
-        clearInterval(interval);
-        interval = null;
-      } else {
-        fetchDashboard();
-        interval = setInterval(fetchDashboard, 60000);
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
-  }, [user, navigate, fetchDashboard]);
+  const { data, isLoading: loading, error } = useQuery({
+    queryKey: DASHBOARD_KEY,
+    queryFn: () => apiFetch('/restaurant/dashboard'),
+    enabled: isOwner,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+  });
+
+  const refreshDashboard = () => queryClient.invalidateQueries({ queryKey: DASHBOARD_KEY });
 
   const formatDate = (dateStr) => {
     const d = new Date(dateStr + 'T00:00:00');
@@ -87,23 +66,12 @@ function RestaurantDashboardPage() {
     return d.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   };
 
-  const apiCall = async (url, method, body) => {
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: body ? JSON.stringify(body) : undefined
-    });
-    const d = await res.json();
-    if (!res.ok) throw new Error(d.error || 'Action failed');
-    return d;
-  };
-
   const handleApprove = async (id, assigned_table) => {
     setActionLoading(id + '-approve');
     setActionError(null);
     try {
-      await apiCall(`${API_URL}/restaurant/reservations/${id}/approve`, 'PUT', { assigned_table });
-      fetchDashboard();
+      await apiFetch(`/restaurant/reservations/${id}/approve`, { method: 'PUT', body: { assigned_table } });
+      refreshDashboard();
     } catch (err) {
       setActionError(err.message);
     } finally {
@@ -115,8 +83,8 @@ function RestaurantDashboardPage() {
     setActionLoading(id + '-decline');
     setActionError(null);
     try {
-      await apiCall(`${API_URL}/restaurant/reservations/${id}/decline`, 'PUT', {});
-      fetchDashboard();
+      await apiFetch(`/restaurant/reservations/${id}/decline`, { method: 'PUT', body: {} });
+      refreshDashboard();
     } catch (err) {
       setActionError(err.message);
     } finally {
@@ -128,8 +96,21 @@ function RestaurantDashboardPage() {
     setActionLoading(id + '-' + status);
     setActionError(null);
     try {
-      await apiCall(`${API_URL}/restaurant/reservations/${id}/status`, 'PUT', { status });
-      fetchDashboard();
+      await apiFetch(`/restaurant/reservations/${id}/status`, { method: 'PUT', body: { status } });
+      refreshDashboard();
+    } catch (err) {
+      setActionError(err.message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleClearArrived = async () => {
+    setActionLoading('clear-arrived');
+    setActionError(null);
+    try {
+      await apiFetch('/restaurant/reservations/clear-arrived', { method: 'POST' });
+      refreshDashboard();
     } catch (err) {
       setActionError(err.message);
     } finally {
@@ -139,15 +120,13 @@ function RestaurantDashboardPage() {
 
   if (!user || user.role !== 'restaurant') return null;
   if (loading) return <div className="loading">Loading dashboard...</div>;
-  if (error) return <div className="error-message">{error}</div>;
+  if (error) return <div className="error-message">{error.message || 'Failed to load dashboard'}</div>;
 
   const { restaurant, pending = [], upcoming = [], completed = [], cancelled = [], stats = {} } = data || {};
-  const noShowRate = stats.completed_total > 0
-    ? Math.round((stats.no_show / stats.completed_total) * 100)
-    : 0;
   if (!restaurant) return <div className="loading">Loading dashboard...</div>;
-  const occupancyRate = restaurant.max_guests > 0 && upcoming.length > 0
-    ? Math.min(100, Math.round((upcoming.reduce((s, r) => s + r.num_people, 0) / restaurant.max_guests) * 100))
+  const tablesUsed = stats.arrived || 0;
+  const occupancyRate = restaurant.num_tables > 0
+    ? Math.min(100, Math.round((tablesUsed / restaurant.num_tables) * 100))
     : 0;
 
   return (
@@ -182,15 +161,26 @@ function RestaurantDashboardPage() {
         </div>
         <div className="stat-card">
           <div className="stat-value">{stats.arrived}</div>
-          <div className="stat-label">Arrived Today</div>
+          <div className="stat-label">Currently Arrived</div>
+          {stats.arrived > 0 && (
+            <button
+              type="button"
+              className="stat-reset-btn"
+              onClick={handleClearArrived}
+              disabled={actionLoading === 'clear-arrived'}
+              title="End the shift and clear today's arrivals"
+            >
+              {actionLoading === 'clear-arrived' ? 'Resetting…' : 'Reset'}
+            </button>
+          )}
         </div>
         <div className="stat-card">
-          <div className="stat-value">{noShowRate}%</div>
-          <div className="stat-label">No-show Rate</div>
+          <div className="stat-value">{stats.cancelled_today || 0}</div>
+          <div className="stat-label">Cancellations Today</div>
         </div>
         <div className="stat-card">
           <div className="stat-value">{occupancyRate}%</div>
-          <div className="stat-label">Occupancy</div>
+          <div className="stat-label">Tables Used ({tablesUsed}/{restaurant.num_tables})</div>
         </div>
       </div>
 
@@ -289,7 +279,7 @@ function RestaurantDashboardPage() {
                       onStatusUpdate={handleStatusUpdate}
                       actionLoading={actionLoading}
                       formatDate={formatDate}
-                      onRefresh={fetchDashboard}
+                      onRefresh={refreshDashboard}
                     />
                   ))}
                 </div>
@@ -316,7 +306,13 @@ function RestaurantDashboardPage() {
                 <div key={group.date}>
                   <div className="date-group-header">{group.label}</div>
                   {group.items.map(r => (
-                    <CompletedCard key={r.id} reservation={r} formatDate={formatDate} />
+                    <CompletedCard
+                      key={r.id}
+                      reservation={r}
+                      formatDate={formatDate}
+                      onStatusUpdate={handleStatusUpdate}
+                      actionLoading={actionLoading}
+                    />
                   ))}
                 </div>
               ))}
@@ -358,18 +354,38 @@ function RestaurantDashboardPage() {
   );
 }
 
-function CompletedCard({ reservation: r, formatDate }) {
+function CompletedCard({ reservation: r, formatDate, onStatusUpdate, actionLoading }) {
+  const isDone = r.status === 'completed';
+  const isMarkingDone = actionLoading === r.id + '-completed';
+
   return (
-    <div className="dashboard-card completed-card">
+    <div className={`dashboard-card completed-card${isDone ? ' done-card' : ''}`}>
       <div className="dashboard-card-header">
         <div className="dashboard-card-guest">
-          <div className="guest-avatar guest-avatar-green">{r.name.charAt(0).toUpperCase()}</div>
+          <div className={`guest-avatar ${isDone ? 'guest-avatar-grey' : 'guest-avatar-green'}`}>
+            {r.name.charAt(0).toUpperCase()}
+          </div>
           <div>
             <strong>{r.name}</strong>
             <span className="guest-contact">{r.email}{r.phone ? ` · ${r.phone}` : ''}</span>
           </div>
         </div>
-        <span className="res-status-badge status-arrived">Arrived</span>
+        <div className="status-with-action">
+          <span className={`res-status-badge ${isDone ? 'status-done' : 'status-arrived'}`}>
+            {isDone ? 'Done' : 'Arrived'}
+          </span>
+          {!isDone && onStatusUpdate && (
+            <button
+              type="button"
+              className="done-btn"
+              onClick={() => onStatusUpdate(r.id, 'completed')}
+              disabled={isMarkingDone}
+              title="Mark this reservation as done — frees the table"
+            >
+              {isMarkingDone ? '...' : 'DONE'}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="dashboard-card-info">
@@ -454,11 +470,25 @@ function CancelledCard({ reservation: r, formatDate }) {
 
 function PendingCard({ reservation: r, restaurant, onApprove, onDecline, actionLoading, formatDate, formatDateTime }) {
   const [tableInput, setTableInput] = useState('');
+  const [tableError, setTableError] = useState(null);
   const [showDeclineConfirm, setShowDeclineConfirm] = useState(false);
   const isApproving = actionLoading === r.id + '-approve';
   const isDeclining = actionLoading === r.id + '-decline';
 
   const createdAt = formatDateTime(r.created_at);
+  const parsedTable = parseInt(tableInput, 10);
+  const tableValid = Number.isInteger(parsedTable)
+    && parsedTable >= 1
+    && parsedTable <= restaurant.num_tables;
+
+  const handleApproveClick = () => {
+    if (!tableValid) {
+      setTableError(`Assign a table number between 1 and ${restaurant.num_tables} before approving.`);
+      return;
+    }
+    setTableError(null);
+    onApprove(r.id, parsedTable);
+  };
 
   return (
     <div className="dashboard-card pending-card">
@@ -504,21 +534,29 @@ function PendingCard({ reservation: r, restaurant, onApprove, onDecline, actionL
         <div className="table-assign-row">
           <input
             type="number"
-            className="table-input"
-            placeholder="Table #"
+            className={`table-input${tableError ? ' input-error' : ''}`}
+            placeholder={`Table # (1–${restaurant.num_tables})`}
             min="1"
             max={restaurant.num_tables}
             value={tableInput}
-            onChange={e => setTableInput(e.target.value)}
+            onChange={e => {
+              setTableInput(e.target.value);
+              if (tableError) setTableError(null);
+            }}
+            required
+            aria-required="true"
+            aria-invalid={!!tableError}
           />
           <button
             className="approve-btn"
-            onClick={() => onApprove(r.id, tableInput ? parseInt(tableInput, 10) : null)}
-            disabled={isApproving || isDeclining}
+            onClick={handleApproveClick}
+            disabled={isApproving || isDeclining || !tableValid}
+            title={tableValid ? '' : 'Assign a table number before approving'}
           >
             {isApproving ? 'Approving...' : '✓ Approve'}
           </button>
         </div>
+        {tableError && <div className="field-error">{tableError}</div>}
 
         {!showDeclineConfirm ? (
           <button
@@ -630,7 +668,6 @@ function UpcomingCard({ reservation: r, onStatusUpdate, actionLoading, formatDat
 }
 
 function ModifyForm({ reservationId, current, onDone, onRefresh }) {
-  const { token } = useAuth();
   const [form, setForm] = useState({
     date: current.date,
     time: current.time,
@@ -645,18 +682,15 @@ function ModifyForm({ reservationId, current, onDone, onRefresh }) {
     setSaving(true);
     setErr(null);
     try {
-      const res = await fetch(`${API_URL}/restaurant/reservations/${reservationId}`, {
+      await apiFetch(`/restaurant/reservations/${reservationId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
+        body: {
           date: form.date,
           time: form.time,
           num_people: parseInt(form.num_people, 10),
-          assigned_table: form.assigned_table ? parseInt(form.assigned_table, 10) : null
-        })
+          assigned_table: form.assigned_table ? parseInt(form.assigned_table, 10) : null,
+        },
       });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error || 'Failed');
       onDone();
       if (onRefresh) onRefresh();
     } catch (e) {

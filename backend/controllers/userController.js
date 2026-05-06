@@ -18,7 +18,7 @@ const UserController = {
           cancelled.push(r);
           continue;
         }
-        if (r.status === 'arrived') {
+        if (r.status === 'arrived' || r.status === 'completed') {
           past.push(r);
           continue;
         }

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '../api/client';
 
-const API_URL = 'http://localhost:3001/api';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
@@ -15,13 +15,7 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    fetch(`${API_URL}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('Invalid token');
-        return res.json();
-      })
+    apiFetch('/auth/me')
       .then(data => {
         setUser(data.user);
         setLoading(false);
@@ -35,13 +29,10 @@ export function AuthProvider({ children }) {
   }, [token]);
 
   const login = useCallback(async (email, password) => {
-    const res = await fetch(`${API_URL}/auth/login`, {
+    const data = await apiFetch('/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      body: { email, password },
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Login failed');
     localStorage.setItem('token', data.token);
     setToken(data.token);
     setUser(data.user);
@@ -49,13 +40,10 @@ export function AuthProvider({ children }) {
   }, []);
 
   const register = useCallback(async (name, email, password, phone) => {
-    const res = await fetch(`${API_URL}/auth/register`, {
+    const data = await apiFetch('/auth/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password, phone })
+      body: { name, email, password, phone },
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Registration failed');
     localStorage.setItem('token', data.token);
     setToken(data.token);
     setUser(data.user);
@@ -63,13 +51,10 @@ export function AuthProvider({ children }) {
   }, []);
 
   const googleLogin = useCallback(async (credential) => {
-    const res = await fetch(`${API_URL}/auth/google`, {
+    const data = await apiFetch('/auth/google', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ credential })
+      body: { credential },
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Google login failed');
     localStorage.setItem('token', data.token);
     setToken(data.token);
     setUser(data.user);
@@ -77,13 +62,10 @@ export function AuthProvider({ children }) {
   }, []);
 
   const restaurantRegister = useCallback(async (ownerData, restaurantData) => {
-    const res = await fetch(`${API_URL}/restaurant/register`, {
+    const data = await apiFetch('/restaurant/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...ownerData, ...restaurantData })
+      body: { ...ownerData, ...restaurantData },
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Registration failed');
     localStorage.setItem('token', data.token);
     setToken(data.token);
     setUser(data.user);

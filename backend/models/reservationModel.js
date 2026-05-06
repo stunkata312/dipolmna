@@ -47,7 +47,7 @@ const stmts = {
     SELECT r.*, u.name AS user_name
     FROM reservations r
     LEFT JOIN users u ON r.user_id = u.id
-    WHERE r.restaurant_id = ? AND r.status = 'arrived'
+    WHERE r.restaurant_id = ? AND r.status IN ('arrived', 'completed')
     ORDER BY r.date DESC, r.time DESC
   `),
   getCancelled: db.prepare(`
@@ -67,11 +67,16 @@ const stmts = {
       COUNT(*) AS total,
       SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending,
       SUM(CASE WHEN status = 'confirmed' AND date >= ? THEN 1 ELSE 0 END) AS upcoming,
-      SUM(CASE WHEN status = 'arrived' THEN 1 ELSE 0 END) AS arrived,
+      SUM(CASE WHEN status = 'arrived' AND date = ? THEN 1 ELSE 0 END) AS arrived,
       SUM(CASE WHEN status = 'no_show' THEN 1 ELSE 0 END) AS no_show,
-      SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled,
-      SUM(CASE WHEN status = 'arrived' OR status = 'no_show' THEN 1 ELSE 0 END) AS completed_total
+      SUM(CASE WHEN status = 'cancelled' AND DATE(cancelled_at) = ? THEN 1 ELSE 0 END) AS cancelled_today,
+      SUM(CASE WHEN status IN ('arrived', 'completed', 'no_show') THEN 1 ELSE 0 END) AS completed_total
     FROM reservations WHERE restaurant_id = ?
+  `),
+  clearArrivedToday: db.prepare(`
+    UPDATE reservations
+    SET status = 'completed'
+    WHERE restaurant_id = ? AND status = 'arrived' AND date = ?
   `)
 };
 
@@ -135,7 +140,13 @@ const ReservationModel = {
 
   getStatsByRestaurant(restaurantId) {
     const today = new Date().toISOString().split('T')[0];
-    return stmts.getStats.get(today, restaurantId);
+    return stmts.getStats.get(today, today, today, restaurantId);
+  },
+
+  clearArrivedToday(restaurantId) {
+    const today = new Date().toISOString().split('T')[0];
+    const result = stmts.clearArrivedToday.run(restaurantId, today);
+    return result.changes;
   }
 };
 

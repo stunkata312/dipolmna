@@ -1,66 +1,61 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
+import { apiFetch } from '../api/client';
 
-const API_URL = 'http://localhost:3001/api';
+const EMPTY_RESERVATIONS = { active: [], past: [], cancelled: [] };
 
 function ProfilePage() {
-  const { user, token, logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [reservations, setReservations] = useState({ active: [], past: [], cancelled: [] });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const queryClient = useQueryClient();
 
   // Expand / edit state
   const [expandedId, setExpandedId] = useState(null);
   const [editData, setEditData] = useState({ date: '', time: '', num_people: '' });
-  const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState(null);
   const [confirmCancelId, setConfirmCancelId] = useState(null);
 
-  const fetchReservations = () => {
-    fetch(`${API_URL}/user/reservations`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to load reservations');
-        return res.json();
-      })
-      .then(data => {
-        setReservations(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        setError(err.message);
-        setLoading(false);
-      });
-  };
-
   useEffect(() => {
-    if (!user) {
-      navigate('/');
-      return;
-    }
-    fetchReservations();
+    if (!user) navigate('/');
+  }, [user, navigate]);
 
-    // Re-fetch every 60 seconds, but only when tab is visible
-    let interval = setInterval(fetchReservations, 60000);
-    const handleVisibility = () => {
-      if (document.hidden) {
-        clearInterval(interval);
-        interval = null;
-      } else {
-        fetchReservations();
-        interval = setInterval(fetchReservations, 60000);
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, token, navigate]);
+  const {
+    data: reservations = EMPTY_RESERVATIONS,
+    isLoading: loading,
+    error,
+  } = useQuery({
+    queryKey: ['user', 'reservations'],
+    queryFn: () => apiFetch('/user/reservations'),
+    enabled: !!user,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+  });
+
+  const updateReservation = useMutation({
+    mutationFn: ({ id, body }) => apiFetch(`/reservations/${id}`, { method: 'PUT', body }),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['user', 'reservations'] });
+      setExpandedId(null);
+      setActionError(null);
+      void vars;
+    },
+    onError: (err) => setActionError(err.message),
+  });
+
+  const cancelReservation = useMutation({
+    mutationFn: (id) => apiFetch(`/reservations/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user', 'reservations'] });
+      setExpandedId(null);
+      setConfirmCancelId(null);
+      setActionError(null);
+    },
+    onError: (err) => setActionError(err.message),
+  });
+
+  const saving = updateReservation.isPending || cancelReservation.isPending;
 
   if (!user) return null;
 
@@ -91,65 +86,21 @@ function ProfilePage() {
     setEditData({ ...editData, [e.target.name]: e.target.value });
   };
 
-  const handleSave = async (id) => {
-    setSaving(true);
+  const handleSave = (id) => {
     setActionError(null);
-    try {
-      const res = await fetch(`${API_URL}/reservations/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          date: editData.date,
-          time: editData.time,
-          num_people: parseInt(editData.num_people, 10)
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update');
-
-      // Update local state with the updated reservation
-      setReservations(prev => ({
-        ...prev,
-        active: prev.active.map(r => r.id === id ? data.reservation : r)
-      }));
-      setExpandedId(null);
-    } catch (err) {
-      setActionError(err.message);
-    } finally {
-      setSaving(false);
-    }
+    updateReservation.mutate({
+      id,
+      body: {
+        date: editData.date,
+        time: editData.time,
+        num_people: parseInt(editData.num_people, 10),
+      },
+    });
   };
 
-  const handleCancel = async (id) => {
-    setSaving(true);
+  const handleCancel = (id) => {
     setActionError(null);
-    try {
-      const res = await fetch(`${API_URL}/reservations/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to cancel');
-
-      // Move to cancelled reservations
-      setReservations(prev => {
-        const cancelledItem = prev.active.find(r => r.id === id);
-        return {
-          ...prev,
-          active: prev.active.filter(r => r.id !== id),
-          cancelled: cancelledItem ? [{ ...cancelledItem, status: 'cancelled' }, ...prev.cancelled] : prev.cancelled
-        };
-      });
-      setExpandedId(null);
-      setConfirmCancelId(null);
-    } catch (err) {
-      setActionError(err.message);
-    } finally {
-      setSaving(false);
-    }
+    cancelReservation.mutate(id);
   };
 
   const ReservationCard = ({ reservation, isPast }) => {
@@ -292,7 +243,7 @@ function ProfilePage() {
         </div>
 
         {loading && <div className="loading">Loading reservations...</div>}
-        {error && <div className="error-message">{error}</div>}
+        {error && <div className="error-message">{error.message || 'Failed to load reservations'}</div>}
 
         {!loading && !error && (
           <>

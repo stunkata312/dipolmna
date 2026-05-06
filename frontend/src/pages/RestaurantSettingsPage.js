@@ -1,84 +1,95 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
+import { apiFetch } from '../api/client';
 import LocationPicker from '../components/LocationPicker';
 
-const API_URL = 'http://localhost:3001/api';
+const SETTINGS_KEY = ['restaurant', 'me'];
 
 function RestaurantSettingsPage() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [form, setForm] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [newClosure, setNewClosure] = useState({ date: '', reason: '' });
 
+  const isOwner = !!user && user.role === 'restaurant';
+
   useEffect(() => {
-    if (!user || user.role !== 'restaurant') { navigate('/'); return; }
-    fetch(`${API_URL}/restaurant/me`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(d => {
-        let closedDays = [];
-        let specialClosures = [];
-        try { closedDays = JSON.parse(d.closed_days || '[]'); } catch {}
-        try { specialClosures = JSON.parse(d.special_closures || '[]'); } catch {}
-        setForm({
-          name: d.name || '',
-          address: d.address || '',
-          description: d.description || '',
-          phone: d.phone || '',
-          opening_hours: d.opening_hours || '',
-          image_url: d.image_url || '',
-          num_tables: String(d.num_tables || 10),
-          seats_per_table: String(d.seats_per_table || 4),
-          max_guests: String(d.max_guests || 40),
-          reservation_start_time: d.reservation_start_time || '10:00',
-          reservation_end_time: d.reservation_end_time || '23:00',
-          closed_days: closedDays,
-          special_closures: specialClosures,
-          latitude: d.latitude ?? null,
-          longitude: d.longitude ?? null
-        });
-        setLoading(false);
-      })
-      .catch(() => { setError('Failed to load settings'); setLoading(false); });
-  }, [user, token, navigate]);
+    if (user && user.role !== 'restaurant') navigate('/');
+  }, [user, navigate]);
+
+  const { data: settings, isLoading: loading, error: loadError } = useQuery({
+    queryKey: SETTINGS_KEY,
+    queryFn: () => apiFetch('/restaurant/me'),
+    enabled: isOwner,
+  });
+
+  // Seed local form once settings have loaded
+  useEffect(() => {
+    if (!settings || form) return;
+    let closedDays = [];
+    let specialClosures = [];
+    try { closedDays = JSON.parse(settings.closed_days || '[]'); } catch {}
+    try { specialClosures = JSON.parse(settings.special_closures || '[]'); } catch {}
+    setForm({
+      name: settings.name || '',
+      address: settings.address || '',
+      description: settings.description || '',
+      phone: settings.phone || '',
+      opening_hours: settings.opening_hours || '',
+      image_url: settings.image_url || '',
+      num_tables: String(settings.num_tables || 10),
+      seats_per_table: String(settings.seats_per_table || 4),
+      max_guests: String(settings.max_guests || 40),
+      reservation_start_time: settings.reservation_start_time || '10:00',
+      reservation_end_time: settings.reservation_end_time || '23:00',
+      closed_days: closedDays,
+      special_closures: specialClosures,
+      latitude: settings.latitude ?? null,
+      longitude: settings.longitude ?? null,
+    });
+  }, [settings, form]);
+
+  const saveSettings = useMutation({
+    mutationFn: (body) => apiFetch('/restaurant/me', { method: 'PUT', body }),
+    onSuccess: () => {
+      setSuccess('Settings saved successfully!');
+      setError(null);
+      queryClient.invalidateQueries({ queryKey: SETTINGS_KEY });
+      queryClient.invalidateQueries({ queryKey: ['restaurants'] });
+    },
+    onError: (err) => setError(err.message),
+  });
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
-  const handleSave = async (e) => {
+  const handleSave = (e) => {
     e.preventDefault();
     if (!form.name.trim() || !form.address.trim()) {
-      setError('Name and address are required'); return;
+      setError('Name and address are required');
+      return;
     }
-    setSaving(true); setError(null); setSuccess(null);
-    try {
-      const res = await fetch(`${API_URL}/restaurant/me`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          ...form,
-          num_tables: parseInt(form.num_tables, 10),
-          seats_per_table: parseInt(form.seats_per_table, 10),
-          max_guests: parseInt(form.max_guests, 10),
-          closed_days: JSON.stringify(form.closed_days),
-          special_closures: JSON.stringify(form.special_closures)
-        })
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error || 'Failed to save');
-      setSuccess('Settings saved successfully!');
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
+    setError(null);
+    setSuccess(null);
+    saveSettings.mutate({
+      ...form,
+      num_tables: parseInt(form.num_tables, 10),
+      seats_per_table: parseInt(form.seats_per_table, 10),
+      max_guests: parseInt(form.max_guests, 10),
+      closed_days: JSON.stringify(form.closed_days),
+      special_closures: JSON.stringify(form.special_closures),
+    });
   };
 
+  const saving = saveSettings.isPending;
+
   if (!user || user.role !== 'restaurant') return null;
-  if (loading) return <div className="loading">Loading settings...</div>;
+  if (loading || !form) return <div className="loading">Loading settings...</div>;
+  if (loadError && !form) return <div className="error-message">Failed to load settings</div>;
 
   return (
     <div>

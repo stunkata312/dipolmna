@@ -1,34 +1,20 @@
-import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import StarRating from '../components/StarRating';
 import ReservationForm from '../components/ReservationForm';
-
-const API_URL = 'http://localhost:3001/api';
+import { apiFetch } from '../api/client';
 
 function RestaurantPage() {
   const { id } = useParams();
-  const [restaurant, setRestaurant] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetch(`${API_URL}/restaurants/${id}`)
-      .then(res => {
-        if (!res.ok) throw new Error('Restaurant not found');
-        return res.json();
-      })
-      .then(data => {
-        setRestaurant(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, [id]);
+  const { data: restaurant, isLoading, error } = useQuery({
+    queryKey: ['restaurant', id],
+    queryFn: () => apiFetch(`/restaurants/${id}`),
+    enabled: !!id,
+  });
 
-  if (loading) return <div className="loading">Loading...</div>;
-  if (error) return <div className="error-message">{error}</div>;
+  if (isLoading) return <div className="loading">Loading...</div>;
+  if (error) return <div className="error-message">{error.status === 404 ? 'Restaurant not found' : error.message}</div>;
   if (!restaurant) return null;
 
   return (

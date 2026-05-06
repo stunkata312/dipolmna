@@ -44,6 +44,7 @@ app.get('/api/restaurant/dashboard', requireRestaurantOwner, RestaurantAdminCont
 app.put('/api/restaurant/reservations/:id/approve', requireRestaurantOwner, RestaurantAdminController.approveReservation);
 app.put('/api/restaurant/reservations/:id/decline', requireRestaurantOwner, RestaurantAdminController.declineReservation);
 app.put('/api/restaurant/reservations/:id/status', requireRestaurantOwner, RestaurantAdminController.updateReservationStatus);
+app.post('/api/restaurant/reservations/clear-arrived', requireRestaurantOwner, RestaurantAdminController.clearArrivedToday);
 app.put('/api/restaurant/reservations/:id', requireRestaurantOwner, RestaurantAdminController.modifyReservation);
 
 // Clean up expired cancelled reservations (older than 15 days)

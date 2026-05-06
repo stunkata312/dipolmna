@@ -220,7 +220,7 @@ const RestaurantAdminController = {
       const id = parseInt(req.params.id, 10);
       const { status, assigned_table } = req.body;
 
-      const allowed = ['pending', 'confirmed', 'arrived', 'no_show', 'cancelled'];
+      const allowed = ['pending', 'confirmed', 'arrived', 'completed', 'no_show', 'cancelled'];
       if (!allowed.includes(status)) {
         return res.status(400).json({ error: 'Invalid status' });
       }
@@ -239,6 +239,20 @@ const RestaurantAdminController = {
     } catch (error) {
       console.error('Status update error:', error);
       res.status(500).json({ error: 'Failed to update status' });
+    }
+  },
+
+  // POST /api/restaurant/reservations/clear-arrived — flip today's arrived rows to completed
+  clearArrivedToday(req, res) {
+    try {
+      const restaurant = RestaurantModel.getByOwnerId(req.user.id);
+      if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
+
+      const cleared = ReservationModel.clearArrivedToday(restaurant.id);
+      res.json({ message: 'Arrivals cleared', cleared });
+    } catch (error) {
+      console.error('Clear arrived error:', error);
+      res.status(500).json({ error: 'Failed to clear arrivals' });
     }
   },
 

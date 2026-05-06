@@ -1,6 +1,7 @@
 import { useState, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import UserMenu from './components/UserMenu';
@@ -16,6 +17,16 @@ const RestaurantDashboardPage = lazy(() => import('./pages/RestaurantDashboardPa
 const RestaurantSettingsPage = lazy(() => import('./pages/RestaurantSettingsPage'));
 
 const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 function AppContent() {
   const [showLogin, setShowLogin] = useState(false);
@@ -55,15 +66,17 @@ function AppContent() {
 
 function App() {
   return (
-    <GoogleOAuthProvider clientId={googleClientId}>
-      <ThemeProvider>
-        <AuthProvider>
-          <Router>
-            <AppContent />
-          </Router>
-        </AuthProvider>
-      </ThemeProvider>
-    </GoogleOAuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <GoogleOAuthProvider clientId={googleClientId}>
+        <ThemeProvider>
+          <AuthProvider>
+            <Router>
+              <AppContent />
+            </Router>
+          </AuthProvider>
+        </ThemeProvider>
+      </GoogleOAuthProvider>
+    </QueryClientProvider>
   );
 }
 

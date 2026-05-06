@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
-
-const API_URL = 'http://localhost:3001/api';
+import { apiFetch } from '../api/client';
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
@@ -25,6 +25,7 @@ function generateTimeSlots(startTime, endTime) {
 
 function ReservationForm({ restaurantId, restaurant }) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   // Parse restaurant schedule config
   let closedDays = [];
@@ -45,8 +46,26 @@ function ReservationForm({ restaurantId, restaurant }) {
   });
   const [success, setSuccess] = useState(null);
   const [error, setError] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
+
+  const createReservation = useMutation({
+    mutationFn: (payload) => apiFetch('/reservations', { method: 'POST', body: payload }),
+    onSuccess: () => {
+      setSuccess('Reservation submitted! The restaurant will confirm shortly.');
+      setError(null);
+      queryClient.invalidateQueries({ queryKey: ['user', 'reservations'] });
+      setFormData({
+        name: user?.name || '',
+        email: user?.email || '',
+        phone: user?.phone || '',
+        date: '',
+        time: '',
+        num_people: 2,
+        notes: '',
+      });
+    },
+    onError: (err) => setError(err.message),
+  });
 
   // Calendar state
   const today = new Date();
@@ -80,7 +99,7 @@ function ReservationForm({ restaurantId, restaurant }) {
     return null;
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     setSuccess(null);
     setError(null);
@@ -91,40 +110,11 @@ function ReservationForm({ restaurantId, restaurant }) {
       return;
     }
 
-    setSubmitting(true);
-
-    try {
-      const response = await fetch(`${API_URL}/reservations`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          restaurant_id: restaurantId,
-          num_people: parseInt(formData.num_people, 10)
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create reservation');
-      }
-
-      setSuccess('Reservation submitted! The restaurant will confirm shortly.');
-      setFormData({
-        name: user?.name || '',
-        email: user?.email || '',
-        phone: user?.phone || '',
-        date: '',
-        time: '',
-        num_people: 2,
-        notes: ''
-      });
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSubmitting(false);
-    }
+    createReservation.mutate({
+      ...formData,
+      restaurant_id: restaurantId,
+      num_people: parseInt(formData.num_people, 10),
+    });
   };
 
   // Calendar helpers
@@ -358,8 +348,8 @@ function ReservationForm({ restaurantId, restaurant }) {
           )}
         </div>
 
-        <button type="submit" className="submit-btn" disabled={submitting}>
-          {submitting ? 'Reserving...' : 'Reserve a Table'}
+        <button type="submit" className="submit-btn" disabled={createReservation.isPending}>
+          {createReservation.isPending ? 'Reserving...' : 'Reserve a Table'}
         </button>
       </form>
     </div>
