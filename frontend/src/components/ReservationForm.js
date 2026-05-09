@@ -1,11 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../api/client';
-
-const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'];
-const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+import Calendar from './Calendar';
 
 // Generate time slots for a given range in 30-min intervals
 function generateTimeSlots(startTime, endTime) {
@@ -32,7 +29,6 @@ function ReservationForm({ restaurantId, restaurant }) {
   let specialClosures = [];
   try { closedDays = JSON.parse(restaurant?.closed_days || '[]'); } catch {}
   try { specialClosures = JSON.parse(restaurant?.special_closures || '[]'); } catch {}
-  const closureDates = specialClosures.map(c => c.date);
   const TIME_SLOTS = generateTimeSlots(restaurant?.reservation_start_time, restaurant?.reservation_end_time);
 
   const [formData, setFormData] = useState({
@@ -42,11 +38,44 @@ function ReservationForm({ restaurantId, restaurant }) {
     date: '',
     time: '',
     num_people: 2,
-    notes: ''
+    notes: '',
+    preferred_table: null,
   });
+  const [showTablePicker, setShowTablePicker] = useState(false);
   const [success, setSuccess] = useState(null);
   const [error, setError] = useState(null);
   const [showNotes, setShowNotes] = useState(false);
+
+  // Availability for the chosen date — booked count per slot
+  const { data: availability } = useQuery({
+    queryKey: ['restaurant', restaurantId, 'availability', formData.date],
+    queryFn: () => apiFetch(`/restaurants/${restaurantId}/availability?date=${formData.date}`),
+    enabled: !!formData.date && !!restaurantId,
+    staleTime: 30_000,
+  });
+
+  const slotCounts = availability?.slots || {};
+  const numTables = availability?.num_tables ?? restaurant?.num_tables ?? 1;
+  const allTables = availability?.tables || [];
+  const takenAtSlot = (availability?.taken_tables || {})[formData.time] || [];
+  const isSlotFull = (slot) => (slotCounts[slot] || 0) >= numTables;
+  const slotLoad = (slot) => {
+    const c = slotCounts[slot] || 0;
+    if (c === 0) return 'free';
+    if (c >= numTables) return 'full';
+    if (c >= numTables * 0.6) return 'busy';
+    return 'some';
+  };
+
+  // Tables that fit the party and are free at the chosen time, sorted by best fit (smallest seats >= party size first)
+  const recommendedTables = (() => {
+    if (!formData.time || allTables.length === 0) return [];
+    const partySize = parseInt(formData.num_people, 10) || 1;
+    const takenSet = new Set(takenAtSlot);
+    return allTables
+      .filter(t => !takenSet.has(t.id) && t.seats >= partySize)
+      .sort((a, b) => a.seats - b.seats || a.id - b.id);
+  })();
 
   const createReservation = useMutation({
     mutationFn: (payload) => apiFetch('/reservations', { method: 'POST', body: payload }),
@@ -62,16 +91,15 @@ function ReservationForm({ restaurantId, restaurant }) {
         time: '',
         num_people: 2,
         notes: '',
+        preferred_table: null,
       });
+      setShowTablePicker(false);
     },
     onError: (err) => setError(err.message),
   });
 
-  // Calendar state
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const [calMonth, setCalMonth] = useState(today.getMonth());
-  const [calYear, setCalYear] = useState(today.getFullYear());
 
   useEffect(() => {
     if (user) {
@@ -114,38 +142,14 @@ function ReservationForm({ restaurantId, restaurant }) {
       ...formData,
       restaurant_id: restaurantId,
       num_people: parseInt(formData.num_people, 10),
+      preferred_table: formData.preferred_table || null,
     });
   };
 
-  // Calendar helpers
-  const getDaysInMonth = (month, year) => new Date(year, month + 1, 0).getDate();
-  const getFirstDayOfMonth = (month, year) => {
-    const day = new Date(year, month, 1).getDay();
-    return day === 0 ? 6 : day - 1; // Monday = 0
-  };
-
-  const prevMonth = () => {
-    if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1); }
-    else setCalMonth(calMonth - 1);
-  };
-
-  const nextMonth = () => {
-    if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1); }
-    else setCalMonth(calMonth + 1);
-  };
-
-  const canGoPrev = calYear > today.getFullYear() || (calYear === today.getFullYear() && calMonth > today.getMonth());
-
-  const selectDate = (day) => {
-    const date = new Date(calYear, calMonth, day);
-    if (date < today || isClosed(day)) return;
-    const yyyy = calYear;
-    const mm = String(calMonth + 1).padStart(2, '0');
-    const dd = String(day).padStart(2, '0');
-    const dateStr = `${yyyy}-${mm}-${dd}`;
-    const updates = { ...formData, date: dateStr };
-    // Clear selected time if it's now in the past for today
-    if (isToday(day) && formData.time) {
+  const handleDateChange = (newDate) => {
+    const updates = { ...formData, date: newDate };
+    // If switching to today, clear a now-past time
+    if (newDate && new Date(newDate + 'T00:00:00').getTime() === today.getTime() && formData.time) {
       const now = new Date();
       const [h, m] = formData.time.split(':').map(Number);
       if (h < now.getHours() || (h === now.getHours() && m <= now.getMinutes())) {
@@ -153,35 +157,6 @@ function ReservationForm({ restaurantId, restaurant }) {
       }
     }
     setFormData(updates);
-  };
-
-  const isSelected = (day) => {
-    const mm = String(calMonth + 1).padStart(2, '0');
-    const dd = String(day).padStart(2, '0');
-    return formData.date === `${calYear}-${mm}-${dd}`;
-  };
-
-  const isToday = (day) => {
-    return calYear === today.getFullYear() && calMonth === today.getMonth() && day === today.getDate();
-  };
-
-  const isPast = (day) => {
-    const date = new Date(calYear, calMonth, day);
-    return date < today;
-  };
-
-  const isClosed = (day) => {
-    const date = new Date(calYear, calMonth, day);
-    // JS getDay: 0=Sun, convert to Mon=0 format
-    const jsDay = date.getDay();
-    const mondayBased = jsDay === 0 ? 6 : jsDay - 1;
-    if (closedDays.includes(mondayBased)) return true;
-    // Check special closures
-    const mm = String(calMonth + 1).padStart(2, '0');
-    const dd = String(day).padStart(2, '0');
-    const dateStr = `${calYear}-${mm}-${dd}`;
-    if (closureDates.includes(dateStr)) return true;
-    return false;
   };
 
   // Time slot helpers
@@ -208,19 +183,9 @@ function ReservationForm({ restaurantId, restaurant }) {
     }
   };
 
-  // Build calendar grid
-  const daysInMonth = getDaysInMonth(calMonth, calYear);
-  const firstDay = getFirstDayOfMonth(calMonth, calYear);
-  const calendarCells = [];
-  for (let i = 0; i < firstDay; i++) calendarCells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) calendarCells.push(d);
-
   return (
     <div className="reservation-card modern-reservation">
       <h2>Make a Reservation</h2>
-
-      {success && <div className="success-message">{success}</div>}
-      {error && <div className="error-message">{error}</div>}
 
       <form onSubmit={handleSubmit}>
         {/* Personal Info */}
@@ -234,7 +199,7 @@ function ReservationForm({ restaurantId, restaurant }) {
             <input type="email" id="email" name="email" value={formData.email} onChange={handleChange} placeholder="your@email.com" />
           </div>
           <div className="form-group">
-            <label htmlFor="phone">Phone (optional)</label>
+            <label htmlFor="phone">Phone <span className="label-optional">*optional</span></label>
             <input type="tel" id="phone" name="phone" value={formData.phone} onChange={handleChange} placeholder="+359 888 000 000" />
           </div>
         </div>
@@ -264,61 +229,119 @@ function ReservationForm({ restaurantId, restaurant }) {
         {/* Calendar */}
         <div className="res-section">
           <label className="res-section-label">Select Date</label>
-          <div className="custom-calendar">
-            <div className="cal-header">
-              <button type="button" className="cal-nav" onClick={prevMonth} disabled={!canGoPrev}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="15 18 9 12 15 6" />
-                </svg>
-              </button>
-              <span className="cal-title">{MONTH_NAMES[calMonth]} {calYear}</span>
-              <button type="button" className="cal-nav" onClick={nextMonth}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="9 6 15 12 9 18" />
-                </svg>
-              </button>
-            </div>
-            <div className="cal-days-header">
-              {DAY_NAMES.map(d => <div key={d} className="cal-day-name">{d}</div>)}
-            </div>
-            <div className="cal-grid">
-              {calendarCells.map((day, i) => (
-                <div key={i} className="cal-cell-wrapper">
-                  {day ? (
-                    <button
-                      type="button"
-                      className={`cal-cell ${isPast(day) || isClosed(day) ? 'disabled' : ''} ${isSelected(day) ? 'selected' : ''} ${isToday(day) ? 'today' : ''} ${isClosed(day) && !isPast(day) ? 'closed' : ''}`}
-                      onClick={() => selectDate(day)}
-                      disabled={isPast(day) || isClosed(day)}
-                      title={isClosed(day) ? 'Closed' : ''}
-                    >
-                      {day}
-                    </button>
-                  ) : <div className="cal-cell empty" />}
-                </div>
-              ))}
-            </div>
-          </div>
+          <Calendar
+            value={formData.date}
+            onChange={handleDateChange}
+            closedDays={closedDays}
+            specialClosures={specialClosures}
+          />
         </div>
 
         {/* Time Slots */}
         <div className="res-section">
-          <label className="res-section-label">Select Time</label>
+          <div className="res-section-label-row">
+            <label className="res-section-label">Select Time</label>
+            {formData.date && (
+              <div className="slot-legend">
+                <span><i className="slot-dot slot-dot-free" /> Open</span>
+                <span><i className="slot-dot slot-dot-some" /> Available</span>
+                <span><i className="slot-dot slot-dot-busy" /> Limited</span>
+                <span><i className="slot-dot slot-dot-full" /> Full</span>
+              </div>
+            )}
+          </div>
           <div className="time-slots-grid">
-            {TIME_SLOTS.filter(slot => !isTimeSlotPast(slot)).map(slot => (
-              <button
-                key={slot}
-                type="button"
-                className={`time-slot ${formData.time === slot ? 'selected' : ''}`}
-                onClick={() => setFormData({ ...formData, time: slot })}
-              >
-                {slot}
-              </button>
-            ))}
+            {TIME_SLOTS.filter(slot => !isTimeSlotPast(slot)).map(slot => {
+              const full = isSlotFull(slot);
+              const load = slotLoad(slot);
+              const c = slotCounts[slot] || 0;
+              return (
+                <button
+                  key={slot}
+                  type="button"
+                  className={`time-slot time-slot-${load} ${formData.time === slot ? 'selected' : ''}`}
+                  onClick={() => !full && setFormData({ ...formData, time: slot, preferred_table: null })}
+                  disabled={full}
+                  title={full ? 'Fully booked' : `${c}/${numTables} tables booked`}
+                >
+                  <span>{slot}</span>
+                  {c > 0 && <span className="slot-count">{c}/{numTables}</span>}
+                </button>
+              );
+            })}
             {TIME_SLOTS.every(slot => isTimeSlotPast(slot)) && formData.date && (
               <p className="no-slots-msg">No available time slots for today</p>
             )}
           </div>
+        </div>
+
+        {/* Select Table — always visible, collapsible, optional */}
+        <div className="res-section">
+          <button
+            type="button"
+            className="notes-toggle"
+            onClick={() => setShowTablePicker(s => !s)}
+          >
+            <span>
+              Select Table <span className="label-optional">*optional</span>
+              {formData.preferred_table && (
+                <span className="picker-summary"> · Table {formData.preferred_table}</span>
+              )}
+            </span>
+            <svg
+              width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2.5"
+              className={`notes-arrow ${showTablePicker ? 'open' : ''}`}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {showTablePicker && (
+            <div className="customer-table-picker">
+              {!formData.date || !formData.time ? (
+                <p className="picker-hint">Pick a date and time first to see available tables.</p>
+              ) : recommendedTables.length === 0 ? (
+                <p className="picker-hint">No tables fit your party of {formData.num_people} at {formData.time}.</p>
+              ) : (
+                <>
+                  <p className="picker-hint">
+                    Showing tables that fit your party of {formData.num_people} and are free at {formData.time}.
+                  </p>
+                  <div className="customer-table-grid">
+                    {recommendedTables.map(t => {
+                      const isSelected = formData.preferred_table === t.id;
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          className={`customer-table-cell${isSelected ? ' is-selected' : ''}`}
+                          onClick={() => setFormData({
+                            ...formData,
+                            preferred_table: isSelected ? null : t.id,
+                          })}
+                          title={`Table ${t.id} · ${t.seats} seats`}
+                        >
+                          <span className="customer-table-num">{t.id}</span>
+                          <span className="customer-table-seats">{t.seats} seats</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+              {formData.preferred_table && (
+                <div className="picker-clear-row">
+                  <button
+                    type="button"
+                    className="picker-clear-btn"
+                    onClick={() => setFormData({ ...formData, preferred_table: null })}
+                  >
+                    Clear preference
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Notes - collapsible */}
@@ -328,7 +351,7 @@ function ReservationForm({ restaurantId, restaurant }) {
             className="notes-toggle"
             onClick={() => setShowNotes(s => !s)}
           >
-            <span>Special Requests (optional)</span>
+            <span>Special Requests <span className="label-optional">*optional</span></span>
             <svg
               width="16"
               height="16"
@@ -351,6 +374,9 @@ function ReservationForm({ restaurantId, restaurant }) {
         <button type="submit" className="submit-btn" disabled={createReservation.isPending}>
           {createReservation.isPending ? 'Reserving...' : 'Reserve a Table'}
         </button>
+
+        {success && <div className="form-feedback success-message">{success}</div>}
+        {error && <div className="form-feedback error-message">{error}</div>}
       </form>
     </div>
   );

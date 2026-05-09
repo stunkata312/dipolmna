@@ -39,11 +39,13 @@ const RestaurantModel = {
   },
 
   create({ owner_id, name, address, description, phone, opening_hours, num_tables, seats_per_table, max_guests, image_url,
-           reservation_start_time, reservation_end_time, closed_days, special_closures, latitude, longitude }) {
+           reservation_start_time, reservation_end_time, closed_days, special_closures, latitude, longitude,
+           cover_images, gallery_images, tables }) {
     const stmt = db.prepare(`
       INSERT INTO restaurants (owner_id, name, address, description, phone, opening_hours, num_tables, seats_per_table, max_guests, image_url,
-        reservation_start_time, reservation_end_time, closed_days, special_closures, latitude, longitude)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        reservation_start_time, reservation_end_time, closed_days, special_closures, latitude, longitude,
+        cover_images, gallery_images, tables)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const result = stmt.run(
       owner_id, name, address, description || null, phone || null,
@@ -51,19 +53,22 @@ const RestaurantModel = {
       max_guests || 40, image_url || null,
       reservation_start_time || '10:00', reservation_end_time || '23:00',
       closed_days || '[]', special_closures || '[]',
-      latitude ?? null, longitude ?? null
+      latitude ?? null, longitude ?? null,
+      cover_images || '[]', gallery_images || '[]',
+      tables || '[]'
     );
     return this.getById(result.lastInsertRowid);
   },
 
   update(id, { name, address, description, phone, opening_hours, num_tables, seats_per_table, max_guests, image_url,
-               reservation_start_time, reservation_end_time, closed_days, special_closures, latitude, longitude }) {
+               reservation_start_time, reservation_end_time, closed_days, special_closures, latitude, longitude,
+               cover_images, gallery_images, tables }) {
     const current = this.getById(id);
     db.prepare(`
       UPDATE restaurants SET name=?, address=?, description=?, phone=?, opening_hours=?,
         num_tables=?, seats_per_table=?, max_guests=?, image_url=?,
         reservation_start_time=?, reservation_end_time=?, closed_days=?, special_closures=?,
-        latitude=?, longitude=?
+        latitude=?, longitude=?, cover_images=?, gallery_images=?, tables=?
       WHERE id=?
     `).run(name, address, description || null, phone || null, opening_hours || null,
       num_tables, seats_per_table, max_guests, image_url || null,
@@ -71,6 +76,9 @@ const RestaurantModel = {
       closed_days || '[]', special_closures || '[]',
       latitude !== undefined ? latitude : current?.latitude ?? null,
       longitude !== undefined ? longitude : current?.longitude ?? null,
+      cover_images !== undefined ? cover_images : (current?.cover_images || '[]'),
+      gallery_images !== undefined ? gallery_images : (current?.gallery_images || '[]'),
+      tables !== undefined ? tables : (current?.tables || '[]'),
       id);
     return this.getById(id);
   }

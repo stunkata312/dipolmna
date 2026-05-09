@@ -4,6 +4,9 @@ const UserController = {
   // GET /api/user/reservations
   getReservations(req, res) {
     try {
+      // Sweep stale state so the customer sees up-to-date no_show / completed statuses
+      ReservationModel.runMaintenance();
+
       const reservations = ReservationModel.getByUserEmail(req.user.email);
 
       const now = new Date();
@@ -14,7 +17,8 @@ const UserController = {
       const cancelled = [];
 
       for (const r of reservations) {
-        if (r.status === 'cancelled') {
+        // Cancelled + no_show go in the same bucket — both are "didn't happen"
+        if (r.status === 'cancelled' || r.status === 'no_show') {
           cancelled.push(r);
           continue;
         }

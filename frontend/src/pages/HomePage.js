@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -7,7 +7,32 @@ import StarRating from '../components/StarRating';
 import RestaurantCardSkeleton from '../components/RestaurantCardSkeleton';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../api/client';
+import Dropdown from '../components/Dropdown';
 import 'leaflet/dist/leaflet.css';
+
+const RATING_OPTIONS = [
+  { value: 0,   label: 'Any rating' },
+  { value: 3,   label: '3+ stars' },
+  { value: 4,   label: '4+ stars' },
+  { value: 4.5, label: '4.5+ stars' },
+];
+
+// Build a custom rating-aware divIcon. Class changes when hovered so CSS pulses.
+function makeRestaurantIcon(rating, hovered) {
+  const safe = Number.isFinite(rating) ? rating : 0;
+  const tier = safe >= 4.5 ? 'top' : safe >= 3.5 ? 'good' : 'ok';
+  return L.divIcon({
+    className: 'rest-pin-wrap',
+    html: `
+      <div class="rest-pin rest-pin-${tier}${hovered ? ' rest-pin-hovered' : ''}">
+        <span class="rest-pin-rating">${safe ? safe.toFixed(1) : '–'}</span>
+      </div>
+    `,
+    iconSize: [40, 48],
+    iconAnchor: [20, 44],
+    popupAnchor: [0, -42],
+  });
+}
 
 // Fix default Leaflet marker icons (they break with webpack)
 delete L.Icon.Default.prototype._getIconUrl;
@@ -53,6 +78,8 @@ function HomePage() {
   const [locating, setLocating] = useState(false);
   const [search, setSearch] = useState('');
   const [minRating, setMinRating] = useState(0);
+  const [hoveredId, setHoveredId] = useState(null);
+  const markerRefs = useRef(new Map());
 
   // Redirect restaurant owners to dashboard
   useEffect(() => {
@@ -165,7 +192,19 @@ function HomePage() {
             )}
 
             {mapPins.map(r => (
-              <Marker key={r.id} position={[r.latitude, r.longitude]}>
+              <Marker
+                key={r.id}
+                position={[r.latitude, r.longitude]}
+                icon={makeRestaurantIcon(r.rating, hoveredId === r.id)}
+                ref={(ref) => {
+                  if (ref) markerRefs.current.set(r.id, ref);
+                  else markerRefs.current.delete(r.id);
+                }}
+                eventHandlers={{
+                  mouseover: () => setHoveredId(r.id),
+                  mouseout: () => setHoveredId(prev => prev === r.id ? null : prev),
+                }}
+              >
                 <Popup>
                   <div className="map-popup">
                     <strong>{r.name}</strong>
@@ -203,17 +242,14 @@ function HomePage() {
             onChange={e => setSearch(e.target.value)}
             aria-label="Search restaurants"
           />
-          <select
-            className="home-rating-select"
-            value={minRating}
-            onChange={e => setMinRating(Number(e.target.value))}
-            aria-label="Minimum rating"
-          >
-            <option value={0}>Any rating</option>
-            <option value={3}>3+ stars</option>
-            <option value={4}>4+ stars</option>
-            <option value={4.5}>4.5+ stars</option>
-          </select>
+          <div className="home-rating-select">
+            <Dropdown
+              value={minRating}
+              options={RATING_OPTIONS}
+              onChange={setMinRating}
+              ariaLabel="Minimum rating"
+            />
+          </div>
         </div>
       </div>
 
@@ -226,7 +262,17 @@ function HomePage() {
                 <Link
                   to={`/restaurant/${restaurant.id}`}
                   key={restaurant.id}
-                  className="restaurant-card"
+                  className={`restaurant-card${hoveredId === restaurant.id ? ' restaurant-card-active' : ''}`}
+                  onMouseEnter={() => {
+                    setHoveredId(restaurant.id);
+                    const m = markerRefs.current.get(restaurant.id);
+                    if (m) m.openPopup();
+                  }}
+                  onMouseLeave={() => {
+                    setHoveredId(prev => prev === restaurant.id ? null : prev);
+                    const m = markerRefs.current.get(restaurant.id);
+                    if (m) m.closePopup();
+                  }}
                 >
                   {restaurant.image_url ? (
                     <img

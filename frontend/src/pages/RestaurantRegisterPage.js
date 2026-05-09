@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import LocationPicker from '../components/LocationPicker';
+import ImageListInput from '../components/ImageListInput';
+import TablesEditor from '../components/TablesEditor';
+import TimeInput from '../components/TimeInput';
 
 function RestaurantRegisterPage() {
   const { restaurantRegister } = useAuth();
@@ -17,10 +20,9 @@ function RestaurantRegisterPage() {
     description: '',
     restaurant_phone: '',
     opening_hours: '',
-    image_url: '',
-    num_tables: '10',
-    seats_per_table: '4',
-    max_guests: '40',
+    cover_images: [],
+    gallery_images: [],
+    tables: Array.from({ length: 10 }, (_, i) => ({ id: i + 1, seats: 4 })),
     reservation_start_time: '10:00',
     reservation_end_time: '23:00',
     closed_days: [],
@@ -47,9 +49,7 @@ function RestaurantRegisterPage() {
   };
 
   const validateStep3 = () => {
-    if (parseInt(restaurantData.num_tables, 10) <= 0) return 'Number of tables must be positive';
-    if (parseInt(restaurantData.seats_per_table, 10) <= 0) return 'Seats per table must be positive';
-    if (parseInt(restaurantData.max_guests, 10) <= 0) return 'Max guests must be positive';
+    if (!restaurantData.tables || restaurantData.tables.length === 0) return 'Add at least one table';
     return null;
   };
 
@@ -61,6 +61,10 @@ function RestaurantRegisterPage() {
     }
     if (step === 2) {
       const err = validateStep2();
+      if (err) { setError(err); return; }
+    }
+    if (step === 3) {
+      const err = validateStep3();
       if (err) { setError(err); return; }
     }
     setStep(s => s + 1);
@@ -105,7 +109,10 @@ function RestaurantRegisterPage() {
       const payload = {
         ...restaurantData,
         closed_days: JSON.stringify(restaurantData.closed_days),
-        special_closures: JSON.stringify(restaurantData.special_closures)
+        special_closures: JSON.stringify(restaurantData.special_closures),
+        cover_images: JSON.stringify(restaurantData.cover_images),
+        gallery_images: JSON.stringify(restaurantData.gallery_images),
+        tables: JSON.stringify(restaurantData.tables),
       };
       await restaurantRegister(ownerData, payload);
       navigate('/restaurant/dashboard');
@@ -195,10 +202,19 @@ function RestaurantRegisterPage() {
                   <label>Opening Hours (optional)</label>
                   <input type="text" name="opening_hours" value={restaurantData.opening_hours} onChange={handleRestaurantChange} placeholder="Mon–Fri 12:00–22:00, Sat–Sun 11:00–23:00" />
                 </div>
-                <div className="form-group">
-                  <label>Image URL (optional)</label>
-                  <input type="url" name="image_url" value={restaurantData.image_url} onChange={handleRestaurantChange} placeholder="https://..." />
-                </div>
+                <ImageListInput
+                  label="Cover Photos (optional)"
+                  hint="Shown as a slideshow at the top of your restaurant page. The first photo is the primary cover."
+                  primaryHint="Primary"
+                  value={restaurantData.cover_images}
+                  onChange={(next) => setRestaurantData({ ...restaurantData, cover_images: next })}
+                />
+                <ImageListInput
+                  label="Gallery Photos (optional)"
+                  hint='Shown when guests click the "See more photos" button.'
+                  value={restaurantData.gallery_images}
+                  onChange={(next) => setRestaurantData({ ...restaurantData, gallery_images: next })}
+                />
                 <div className="register-step-actions">
                   <button type="button" className="back-step-btn" onClick={handleBack}>← Back</button>
                   <button type="button" className="submit-btn" onClick={handleNext}>Next →</button>
@@ -210,23 +226,10 @@ function RestaurantRegisterPage() {
             {step === 3 && (
               <div className="register-step-content">
                 <h2>Capacity</h2>
-                <div className="register-capacity-grid">
-                  <div className="form-group">
-                    <label>Number of Tables</label>
-                    <input type="number" name="num_tables" value={restaurantData.num_tables} onChange={handleRestaurantChange} min="1" />
-                  </div>
-                  <div className="form-group">
-                    <label>Seats per Table</label>
-                    <input type="number" name="seats_per_table" value={restaurantData.seats_per_table} onChange={handleRestaurantChange} min="1" />
-                  </div>
-                  <div className="form-group">
-                    <label>Max Guests at Once</label>
-                    <input type="number" name="max_guests" value={restaurantData.max_guests} onChange={handleRestaurantChange} min="1" />
-                  </div>
-                </div>
-                <div className="capacity-summary">
-                  Total capacity: {parseInt(restaurantData.num_tables, 10) * parseInt(restaurantData.seats_per_table, 10) || 0} seats
-                </div>
+                <TablesEditor
+                  value={restaurantData.tables}
+                  onChange={(next) => setRestaurantData({ ...restaurantData, tables: next })}
+                />
                 <div className="register-step-actions">
                   <button type="button" className="back-step-btn" onClick={handleBack}>← Back</button>
                   <button type="button" className="submit-btn" onClick={handleNext}>Next →</button>
@@ -245,19 +248,17 @@ function RestaurantRegisterPage() {
                   <div className="schedule-time-row">
                     <div className="form-group">
                       <label>From</label>
-                      <input
-                        type="time"
+                      <TimeInput
                         value={restaurantData.reservation_start_time}
-                        onChange={e => setRestaurantData({ ...restaurantData, reservation_start_time: e.target.value })}
+                        onChange={(v) => setRestaurantData({ ...restaurantData, reservation_start_time: v })}
                       />
                     </div>
                     <span className="schedule-time-separator">to</span>
                     <div className="form-group">
                       <label>Until</label>
-                      <input
-                        type="time"
+                      <TimeInput
                         value={restaurantData.reservation_end_time}
-                        onChange={e => setRestaurantData({ ...restaurantData, reservation_end_time: e.target.value })}
+                        onChange={(v) => setRestaurantData({ ...restaurantData, reservation_end_time: v })}
                       />
                     </div>
                   </div>

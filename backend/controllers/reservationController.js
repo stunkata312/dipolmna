@@ -5,7 +5,7 @@ const UserModel = require('../models/userModel');
 const ReservationController = {
   create(req, res) {
     try {
-      const { name, email, phone, restaurant_id, date, time, num_people, notes } = req.body;
+      const { name, email, phone, restaurant_id, date, time, num_people, notes, preferred_table } = req.body;
 
       // Validate required fields
       if (!name || !email || !restaurant_id || !date || !time || !num_people) {
@@ -51,7 +51,8 @@ const ReservationController = {
         date,
         time,
         num_people: people,
-        notes: notes || null
+        notes: notes || null,
+        preferred_table: preferred_table ? parseInt(preferred_table, 10) : null,
       });
 
       res.status(201).json({
@@ -82,7 +83,7 @@ const ReservationController = {
         return res.status(403).json({ error: 'You can only edit your own reservations' });
       }
 
-      const { date, time, num_people } = req.body;
+      const { date, time, num_people, preferred_table } = req.body;
 
       if (!date || !time || !num_people) {
         return res.status(400).json({ error: 'Date, time, and number of people are required' });
@@ -105,7 +106,11 @@ const ReservationController = {
         return res.status(400).json({ error: 'Time must be in HH:MM format (e.g., 19:30)' });
       }
 
-      const updated = ReservationModel.update(id, { date, time, num_people: people });
+      const updated = ReservationModel.update(id, {
+        date, time,
+        num_people: people,
+        preferred_table: preferred_table === undefined ? undefined : (preferred_table ? parseInt(preferred_table, 10) : null),
+      });
 
       res.json({ message: 'Reservation updated successfully', reservation: updated });
     } catch (error) {

@@ -60,6 +60,18 @@ db.exec(`
     FOREIGN KEY (restaurant_id) REFERENCES restaurants(id)
   );
 
+  CREATE TABLE IF NOT EXISTS reviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    restaurant_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+    comment TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(restaurant_id, user_id),
+    FOREIGN KEY (restaurant_id) REFERENCES restaurants(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
   CREATE TABLE IF NOT EXISTS waitlist (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     restaurant_id INTEGER NOT NULL,
@@ -129,6 +141,25 @@ if (!restCols.includes('closed_days')) {
 if (!restCols.includes('special_closures')) {
   db.exec("ALTER TABLE restaurants ADD COLUMN special_closures TEXT DEFAULT '[]'");
 }
+if (!restCols.includes('cover_images')) {
+  db.exec("ALTER TABLE restaurants ADD COLUMN cover_images TEXT DEFAULT '[]'");
+}
+if (!restCols.includes('gallery_images')) {
+  db.exec("ALTER TABLE restaurants ADD COLUMN gallery_images TEXT DEFAULT '[]'");
+}
+// Per-table seat config: JSON array of { id, seats }. Backfilled from num_tables/seats_per_table.
+if (!restCols.includes('tables')) {
+  db.exec("ALTER TABLE restaurants ADD COLUMN tables TEXT DEFAULT '[]'");
+  const existing = db.prepare("SELECT id, num_tables, seats_per_table FROM restaurants").all();
+  const update = db.prepare("UPDATE restaurants SET tables = ? WHERE id = ?");
+  for (const r of existing) {
+    const arr = [];
+    const n = r.num_tables || 0;
+    const s = r.seats_per_table || 4;
+    for (let i = 1; i <= n; i++) arr.push({ id: i, seats: s });
+    update.run(JSON.stringify(arr), r.id);
+  }
+}
 
 // Migrate reservations: add new columns if missing
 const resCols = db.pragma('table_info(reservations)').map(c => c.name);
@@ -153,6 +184,10 @@ if (!resCols.includes('assigned_table')) {
 if (!resCols.includes('cancelled_at')) {
   db.exec('ALTER TABLE reservations ADD COLUMN cancelled_at DATETIME');
 }
+// Customer's optional table preference shown to the owner on the pending card
+if (!resCols.includes('preferred_table')) {
+  db.exec('ALTER TABLE reservations ADD COLUMN preferred_table INTEGER');
+}
 
 // Performance indexes
 db.exec(`
@@ -166,6 +201,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_restaurants_coords ON restaurants(latitude, longitude);
   CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
   CREATE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id);
+  CREATE INDEX IF NOT EXISTS idx_reviews_restaurant ON reviews(restaurant_id);
+  CREATE INDEX IF NOT EXISTS idx_reviews_user ON reviews(user_id);
 `);
 
 module.exports = db;

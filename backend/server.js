@@ -7,6 +7,7 @@ const ReservationController = require('./controllers/reservationController');
 const AuthController = require('./controllers/authController');
 const UserController = require('./controllers/userController');
 const RestaurantAdminController = require('./controllers/restaurantAdminController');
+const ReviewController = require('./controllers/reviewController');
 const { requireAuth, requireRestaurantOwner } = require('./middleware/auth');
 
 const app = express();
@@ -21,6 +22,12 @@ app.use(express.json());
 app.get('/api/restaurants', RestaurantController.getAll);
 app.get('/api/restaurants/nearby', RestaurantController.getNearby);
 app.get('/api/restaurants/:id', RestaurantController.getById);
+app.get('/api/restaurants/:id/availability', RestaurantController.getAvailability);
+
+// Reviews
+app.get('/api/restaurants/:id/reviews', ReviewController.list);
+app.post('/api/restaurants/:id/reviews', requireAuth, ReviewController.create);
+app.delete('/api/restaurants/:id/reviews/me', requireAuth, ReviewController.remove);
 
 // Customer reservation routes
 app.post('/api/reservations', ReservationController.create);
@@ -47,16 +54,20 @@ app.put('/api/restaurant/reservations/:id/status', requireRestaurantOwner, Resta
 app.post('/api/restaurant/reservations/clear-arrived', requireRestaurantOwner, RestaurantAdminController.clearArrivedToday);
 app.put('/api/restaurant/reservations/:id', requireRestaurantOwner, RestaurantAdminController.modifyReservation);
 
-// Clean up expired cancelled reservations (older than 15 days)
+// Reservation maintenance — runs on startup, then every 15 min as a safety net
+// (the same sweeps also run on every dashboard / user-reservations fetch)
 const ReservationModel = require('./models/reservationModel');
-const deleted = ReservationModel.deleteExpiredCancelled();
-if (deleted > 0) console.log(`Cleaned up ${deleted} expired cancelled reservations`);
 
-// Run cleanup daily
-setInterval(() => {
-  const d = ReservationModel.deleteExpiredCancelled();
-  if (d > 0) console.log(`Cleaned up ${d} expired cancelled reservations`);
-}, 24 * 60 * 60 * 1000);
+function reservationMaintenance() {
+  const { completed, noShows } = ReservationModel.runMaintenance();
+  if (completed > 0) console.log(`Auto-completed ${completed} stale arrived reservations`);
+  if (noShows > 0) console.log(`Auto-marked ${noShows} reservations as no_show`);
+  const deleted = ReservationModel.deleteExpiredCancelled();
+  if (deleted > 0) console.log(`Cleaned up ${deleted} expired cancelled/no_show reservations`);
+}
+
+reservationMaintenance();
+setInterval(reservationMaintenance, 15 * 60 * 1000);
 
 // Start server
 app.listen(PORT, () => {

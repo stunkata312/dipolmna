@@ -4,6 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../api/client';
 import LocationPicker from '../components/LocationPicker';
+import ImageListInput from '../components/ImageListInput';
+import TablesEditor from '../components/TablesEditor';
+import TimeInput from '../components/TimeInput';
 
 const SETTINGS_KEY = ['restaurant', 'me'];
 
@@ -33,18 +36,31 @@ function RestaurantSettingsPage() {
     if (!settings || form) return;
     let closedDays = [];
     let specialClosures = [];
+    let coverImages = [];
+    let galleryImages = [];
+    let tables = [];
     try { closedDays = JSON.parse(settings.closed_days || '[]'); } catch {}
     try { specialClosures = JSON.parse(settings.special_closures || '[]'); } catch {}
+    try { coverImages = JSON.parse(settings.cover_images || '[]'); } catch {}
+    try { galleryImages = JSON.parse(settings.gallery_images || '[]'); } catch {}
+    try { tables = JSON.parse(settings.tables || '[]'); } catch {}
+    // If old data only has image_url, treat it as the first cover image
+    if (coverImages.length === 0 && settings.image_url) coverImages = [settings.image_url];
+    // Backfill tables from legacy num_tables/seats_per_table if missing
+    if (tables.length === 0 && settings.num_tables) {
+      tables = Array.from({ length: settings.num_tables }, (_, i) => ({
+        id: i + 1, seats: settings.seats_per_table || 4,
+      }));
+    }
     setForm({
       name: settings.name || '',
       address: settings.address || '',
       description: settings.description || '',
       phone: settings.phone || '',
       opening_hours: settings.opening_hours || '',
-      image_url: settings.image_url || '',
-      num_tables: String(settings.num_tables || 10),
-      seats_per_table: String(settings.seats_per_table || 4),
-      max_guests: String(settings.max_guests || 40),
+      cover_images: coverImages,
+      gallery_images: galleryImages,
+      tables,
       reservation_start_time: settings.reservation_start_time || '10:00',
       reservation_end_time: settings.reservation_end_time || '23:00',
       closed_days: closedDays,
@@ -77,11 +93,11 @@ function RestaurantSettingsPage() {
     setSuccess(null);
     saveSettings.mutate({
       ...form,
-      num_tables: parseInt(form.num_tables, 10),
-      seats_per_table: parseInt(form.seats_per_table, 10),
-      max_guests: parseInt(form.max_guests, 10),
       closed_days: JSON.stringify(form.closed_days),
       special_closures: JSON.stringify(form.special_closures),
+      cover_images: JSON.stringify(form.cover_images),
+      gallery_images: JSON.stringify(form.gallery_images),
+      tables: JSON.stringify(form.tables),
     });
   };
 
@@ -97,9 +113,6 @@ function RestaurantSettingsPage() {
       <div className="settings-container">
         <div className="settings-card">
           <h1>Restaurant Settings</h1>
-
-          {error && <div className="error-message">{error}</div>}
-          {success && <div className="success-message">{success}</div>}
 
           <form onSubmit={handleSave}>
             <h2 className="settings-section-title">Basic Info</h2>
@@ -132,29 +145,26 @@ function RestaurantSettingsPage() {
               <label>Opening Hours</label>
               <input type="text" name="opening_hours" value={form.opening_hours} onChange={handleChange} placeholder="Mon–Fri 12:00–22:00" />
             </div>
-            <div className="form-group">
-              <label>Image URL</label>
-              <input type="url" name="image_url" value={form.image_url} onChange={handleChange} placeholder="https://..." />
-            </div>
+            <h2 className="settings-section-title">Photos</h2>
+            <ImageListInput
+              label="Cover Photos"
+              hint="Shown as a slideshow at the top of your restaurant page. The first photo is the primary cover."
+              primaryHint="Primary"
+              value={form.cover_images}
+              onChange={(next) => setForm({ ...form, cover_images: next })}
+            />
+            <ImageListInput
+              label="Gallery Photos"
+              hint='Shown when guests click the "See more photos" button on your restaurant page.'
+              value={form.gallery_images}
+              onChange={(next) => setForm({ ...form, gallery_images: next })}
+            />
 
             <h2 className="settings-section-title">Capacity</h2>
-            <div className="register-capacity-grid">
-              <div className="form-group">
-                <label>Number of Tables</label>
-                <input type="number" name="num_tables" value={form.num_tables} onChange={handleChange} min="1" />
-              </div>
-              <div className="form-group">
-                <label>Seats per Table</label>
-                <input type="number" name="seats_per_table" value={form.seats_per_table} onChange={handleChange} min="1" />
-              </div>
-              <div className="form-group">
-                <label>Max Guests at Once</label>
-                <input type="number" name="max_guests" value={form.max_guests} onChange={handleChange} min="1" />
-              </div>
-            </div>
-            <div className="capacity-summary">
-              Total capacity: {parseInt(form.num_tables, 10) * parseInt(form.seats_per_table, 10) || 0} seats
-            </div>
+            <TablesEditor
+              value={form.tables}
+              onChange={(next) => setForm({ ...form, tables: next })}
+            />
 
             <h2 className="settings-section-title">Reservation Schedule</h2>
             <div className="schedule-section">
@@ -163,19 +173,17 @@ function RestaurantSettingsPage() {
               <div className="schedule-time-row">
                 <div className="form-group">
                   <label>From</label>
-                  <input
-                    type="time"
+                  <TimeInput
                     value={form.reservation_start_time}
-                    onChange={e => setForm({ ...form, reservation_start_time: e.target.value })}
+                    onChange={(v) => setForm({ ...form, reservation_start_time: v })}
                   />
                 </div>
                 <span className="schedule-time-separator">to</span>
                 <div className="form-group">
                   <label>Until</label>
-                  <input
-                    type="time"
+                  <TimeInput
                     value={form.reservation_end_time}
-                    onChange={e => setForm({ ...form, reservation_end_time: e.target.value })}
+                    onChange={(v) => setForm({ ...form, reservation_end_time: v })}
                   />
                 </div>
               </div>
@@ -256,6 +264,9 @@ function RestaurantSettingsPage() {
             <button type="submit" className="submit-btn" disabled={saving} style={{ marginTop: 24 }}>
               {saving ? 'Saving...' : 'Save Settings'}
             </button>
+
+            {success && <div className="form-feedback success-message">{success}</div>}
+            {error && <div className="form-feedback error-message">{error}</div>}
           </form>
         </div>
       </div>
