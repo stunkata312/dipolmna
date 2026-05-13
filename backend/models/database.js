@@ -66,6 +66,9 @@ db.exec(`
     user_id INTEGER NOT NULL,
     rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
     comment TEXT,
+    owner_reply TEXT,
+    owner_reply_at DATETIME,
+    hidden INTEGER NOT NULL DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(restaurant_id, user_id),
     FOREIGN KEY (restaurant_id) REFERENCES restaurants(id),
@@ -187,6 +190,18 @@ if (!resCols.includes('cancelled_at')) {
 // Customer's optional table preference shown to the owner on the pending card
 if (!resCols.includes('preferred_table')) {
   db.exec('ALTER TABLE reservations ADD COLUMN preferred_table INTEGER');
+}
+
+// Migrate reviews: owner reply + cosmetic hide
+const reviewCols = db.pragma('table_info(reviews)').map(c => c.name);
+if (!reviewCols.includes('owner_reply')) {
+  db.exec('ALTER TABLE reviews ADD COLUMN owner_reply TEXT');
+}
+if (!reviewCols.includes('owner_reply_at')) {
+  db.exec('ALTER TABLE reviews ADD COLUMN owner_reply_at DATETIME');
+}
+if (!reviewCols.includes('hidden')) {
+  db.exec('ALTER TABLE reviews ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0');
 }
 
 // Performance indexes

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../api/client';
 import TableGrid from '../components/TableGrid';
@@ -56,12 +56,11 @@ function RestaurantDashboardPage() {
     [data?.upcoming, data?.completed]
   );
 
-  // Reviews left on this restaurant
-  const restaurantId = data?.restaurant?.id;
+  // Reviews left on this restaurant — owner endpoint returns hidden reviews too
   const { data: reviewsData } = useQuery({
-    queryKey: ['restaurant', restaurantId, 'reviews'],
-    queryFn: () => apiFetch(`/restaurants/${restaurantId}/reviews`),
-    enabled: !!restaurantId,
+    queryKey: ['restaurant', 'owner-reviews'],
+    queryFn: () => apiFetch('/restaurant/reviews'),
+    enabled: isOwner,
     staleTime: 30_000,
   });
 
@@ -849,10 +848,6 @@ function ReviewsTabContent({ reviewsData }) {
   }
 
   const totalForBars = Math.max(1, stats.total);
-  const formatDate = (iso) => {
-    const d = new Date(iso.replace(' ', 'T') + (iso.endsWith('Z') ? '' : 'Z'));
-    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-  };
 
   return (
     <>
@@ -883,28 +878,184 @@ function ReviewsTabContent({ reviewsData }) {
 
       <div className="reviews-list">
         {reviews.map(r => (
-          <div key={r.id} className="review-item">
-            <div className="review-head">
-              {r.avatar_url ? (
-                <img src={r.avatar_url} alt="" className="review-avatar" referrerPolicy="no-referrer" />
-              ) : (
-                <span className="review-avatar review-avatar-initials">
-                  {(r.user_name || '?').charAt(0).toUpperCase()}
-                </span>
-              )}
-              <div className="review-meta">
-                <strong>{r.user_name || 'Anonymous'}</strong>
-                <div className="review-meta-row">
-                  <StarRating rating={r.rating} />
-                  <span className="review-date">{formatDate(r.created_at)}</span>
-                </div>
-              </div>
-            </div>
-            {r.comment && <p className="review-comment">{r.comment}</p>}
-          </div>
+          <OwnerReviewItem key={r.id} review={r} />
         ))}
       </div>
     </>
+  );
+}
+
+function formatReviewDate(iso) {
+  const d = new Date(iso.replace(' ', 'T') + (iso.endsWith('Z') ? '' : 'Z'));
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function OwnerReviewItem({ review }) {
+  const queryClient = useQueryClient();
+  const isHidden = !!review.hidden;
+  const hasReply = !!(review.owner_reply && review.owner_reply.trim());
+  const [editingReply, setEditingReply] = useState(false);
+  const [replyDraft, setReplyDraft] = useState(review.owner_reply || '');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [error, setError] = useState(null);
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['restaurant', 'owner-reviews'] });
+
+  const saveReply = useMutation({
+    mutationFn: (text) => apiFetch(`/restaurant/reviews/${review.id}/reply`, {
+      method: 'PUT', body: { reply: text },
+    }),
+    onSuccess: () => {
+      setEditingReply(false);
+      setError(null);
+      invalidate();
+    },
+    onError: (err) => setError(err.message),
+  });
+
+  const deleteReply = useMutation({
+    mutationFn: () => apiFetch(`/restaurant/reviews/${review.id}/reply`, { method: 'DELETE' }),
+    onSuccess: () => {
+      setConfirmDelete(false);
+      setError(null);
+      invalidate();
+    },
+    onError: (err) => setError(err.message),
+  });
+
+  const toggleHidden = useMutation({
+    mutationFn: () => apiFetch(`/restaurant/reviews/${review.id}/hidden`, {
+      method: 'PUT', body: { hidden: !isHidden },
+    }),
+    onSuccess: () => {
+      setError(null);
+      invalidate();
+    },
+    onError: (err) => setError(err.message),
+  });
+
+  const busy = saveReply.isPending || deleteReply.isPending || toggleHidden.isPending;
+
+  const startEdit = () => {
+    setReplyDraft(review.owner_reply || '');
+    setEditingReply(true);
+    setError(null);
+  };
+
+  return (
+    <div className={`review-item${isHidden ? ' review-item-hidden' : ''}`}>
+      <div className="review-head">
+        {review.avatar_url ? (
+          <img src={review.avatar_url} alt="" className="review-avatar" referrerPolicy="no-referrer" />
+        ) : (
+          <span className="review-avatar review-avatar-initials">
+            {(review.user_name || '?').charAt(0).toUpperCase()}
+          </span>
+        )}
+        <div className="review-meta">
+          <strong>{review.user_name || 'Anonymous'}</strong>
+          <div className="review-meta-row">
+            <StarRating rating={review.rating} />
+            <span className="review-date">{formatReviewDate(review.created_at)}</span>
+            {isHidden && <span className="review-hidden-pill">Hidden</span>}
+          </div>
+        </div>
+        <div className="review-owner-actions">
+          <button
+            type="button"
+            className="review-action-btn"
+            onClick={() => toggleHidden.mutate()}
+            disabled={busy}
+            title={isHidden ? 'Show on public page' : 'Hide from public page'}
+          >
+            {toggleHidden.isPending ? '…' : isHidden ? 'Show' : 'Hide'}
+          </button>
+        </div>
+      </div>
+      {review.comment && <p className="review-comment">{review.comment}</p>}
+
+      {hasReply && !editingReply && (
+        <div className="review-owner-reply">
+          <div className="review-owner-reply-head">
+            <strong>Your reply</strong>
+            {review.owner_reply_at && (
+              <span className="review-date">{formatReviewDate(review.owner_reply_at)}</span>
+            )}
+          </div>
+          <p className="review-owner-reply-text">{review.owner_reply}</p>
+          <div className="review-owner-reply-actions">
+            <button type="button" className="review-action-btn" onClick={startEdit} disabled={busy}>
+              Edit
+            </button>
+            {!confirmDelete ? (
+              <button
+                type="button"
+                className="review-action-btn review-action-danger"
+                onClick={() => setConfirmDelete(true)}
+                disabled={busy}
+              >
+                Delete
+              </button>
+            ) : (
+              <div className="confirm-cancel">
+                <span>Delete reply?</span>
+                <button
+                  type="button"
+                  className="confirm-yes"
+                  onClick={() => deleteReply.mutate()}
+                  disabled={busy}
+                >
+                  {deleteReply.isPending ? 'Deleting…' : 'Yes'}
+                </button>
+                <button
+                  type="button"
+                  className="confirm-no"
+                  onClick={() => setConfirmDelete(false)}
+                  disabled={busy}
+                >
+                  No
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {(!hasReply || editingReply) && (
+        <div className="review-reply-form">
+          <textarea
+            className="review-reply-textarea"
+            rows={2}
+            maxLength={1000}
+            placeholder={hasReply ? 'Update your reply…' : 'Reply to this review…'}
+            value={editingReply ? replyDraft : replyDraft}
+            onChange={(e) => setReplyDraft(e.target.value)}
+          />
+          <div className="review-reply-actions">
+            <button
+              type="button"
+              className="submit-btn submit-btn-compact"
+              onClick={() => saveReply.mutate(replyDraft)}
+              disabled={busy || !replyDraft.trim()}
+            >
+              {saveReply.isPending ? 'Saving…' : hasReply ? 'Update reply' : 'Post reply'}
+            </button>
+            {editingReply && (
+              <button
+                type="button"
+                className="review-action-btn"
+                onClick={() => { setEditingReply(false); setReplyDraft(review.owner_reply || ''); setError(null); }}
+                disabled={busy}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {error && <div className="form-feedback error-message">{error}</div>}
+    </div>
   );
 }
 

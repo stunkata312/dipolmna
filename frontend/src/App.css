@@ -1512,6 +1512,10 @@
   transform: translateY(-1px);
 }
 
+.history-card-clickable {
+  cursor: pointer;
+}
+
 /* Hover glow tinted to match the status badge */
 .history-card-completed:hover,
 .history-card-arrived:hover {
@@ -1678,6 +1682,7 @@
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+  margin-top: 16px;
 }
 
 .save-btn {
@@ -1704,24 +1709,25 @@
 }
 
 .cancel-reservation-btn {
-  padding: 9px 20px;
-  background: none;
-  border: 1px solid var(--danger);
-  color: var(--danger);
+  padding: 9px 22px;
+  background: linear-gradient(135deg, var(--danger), #b91c1c);
+  color: #fff;
+  border: none;
   border-radius: var(--radius-sm);
   font-size: 0.88rem;
-  font-weight: 600;
+  font-weight: 700;
   font-family: 'Outfit', sans-serif;
   cursor: pointer;
-  transition: all 0.25s;
+  transition: all 0.25s var(--ease-out);
 }
 
 .cancel-reservation-btn:hover {
-  background: var(--danger-bg);
+  box-shadow: 0 4px 16px rgba(248, 113, 113, 0.4);
 }
 
 .cancel-reservation-btn:disabled {
-  opacity: 0.4;
+  background: var(--glass-bg);
+  color: var(--text-muted);
   cursor: not-allowed;
 }
 
@@ -1858,26 +1864,21 @@
   margin-bottom: 10px;
 }
 
-.closure-add-row input[type="date"],
-.closure-add-row input[type="text"] {
+.closure-add-row .form-group {
   flex: 1;
-  padding: 8px 10px;
-  border: 1px solid var(--glass-border);
-  border-radius: 6px;
-  font-size: 0.88rem;
-  font-family: 'Outfit', sans-serif;
-  background: var(--glass-bg);
-  color: var(--text-primary);
+  min-width: 0;
+  margin-bottom: 0;
 }
 
 .closure-add-btn {
-  padding: 8px 16px;
+  flex: 1;
+  padding: 11px 18px;
   background: linear-gradient(135deg, var(--accent), var(--accent-gradient-end));
   color: var(--on-accent);
   border: none;
-  border-radius: 6px;
-  font-size: 0.88rem;
-  font-weight: 600;
+  border-radius: var(--radius-sm);
+  font-size: 0.92rem;
+  font-weight: 700;
   font-family: 'Outfit', sans-serif;
   cursor: pointer;
   white-space: nowrap;
@@ -3355,7 +3356,7 @@
 .rest-pin-good { background: linear-gradient(135deg, #38c8b0, #1d9d8a); }
 .rest-pin-ok   { background: linear-gradient(135deg, #6b7280, #4b5563); }
 
-[data-theme="light"] .rest-pin-top  { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+[data-theme="light"] .rest-pin-top  { background: linear-gradient(135deg, #1d4ed8, #1e40af); }
 [data-theme="light"] .rest-pin-good { background: linear-gradient(135deg, #0e7490, #0c5e75); }
 
 .rest-pin-hovered {
@@ -3826,6 +3827,7 @@
   position: absolute;
   top: 10px;
   right: 12px;
+  z-index: 2;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   color: var(--text-muted);
@@ -3906,6 +3908,143 @@
 
 @media (max-width: 540px) {
   .review-comment { margin-left: 0; }
+}
+
+/* ───── Owner-side review moderation ───── */
+.review-owner-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.review-action-btn {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: 'Outfit', sans-serif;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.review-action-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+  background: var(--accent-dim);
+}
+
+.review-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.review-action-danger:hover {
+  color: var(--danger);
+  border-color: rgba(248, 113, 113, 0.3);
+  background: var(--danger-bg);
+}
+
+.review-hidden-pill {
+  background: var(--warning-bg);
+  color: var(--warning);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.review-item-hidden {
+  opacity: 0.65;
+  border-style: dashed;
+}
+
+.review-item-hidden:hover {
+  opacity: 0.9;
+}
+
+/* Owner reply — shown both publicly under the review and in the owner dashboard */
+.review-owner-reply {
+  margin: 10px 0 0 46px;
+  padding: 10px 12px;
+  background: var(--glass-bg);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.review-owner-reply-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.review-owner-reply-head strong {
+  font-size: 0.78rem;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.review-owner-reply-text {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.review-owner-reply-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.review-reply-form {
+  margin: 10px 0 0 46px;
+}
+
+.review-reply-textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-family: 'Outfit', sans-serif;
+  resize: vertical;
+  transition: border-color 0.2s;
+}
+
+.review-reply-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
+.review-reply-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 540px) {
+  .review-owner-reply,
+  .review-reply-form { margin-left: 0; }
+  .review-owner-actions { margin-top: 6px; margin-left: 46px; }
+  .review-head { flex-wrap: wrap; }
 }
 
 /* Hero carousel controls */

@@ -7,6 +7,7 @@ import LocationPicker from '../components/LocationPicker';
 import ImageListInput from '../components/ImageListInput';
 import TablesEditor from '../components/TablesEditor';
 import TimeInput from '../components/TimeInput';
+import DatePicker from '../components/DatePicker';
 
 const SETTINGS_KEY = ['restaurant', 'me'];
 
@@ -215,18 +216,25 @@ function RestaurantSettingsPage() {
               <h3 className="schedule-section-title">Special Closures</h3>
               <p className="schedule-hint">Add specific dates when your restaurant will be closed (holidays, events, etc.).</p>
               <div className="closure-add-row">
-                <input
-                  type="date"
-                  value={newClosure.date}
-                  min={new Date().toISOString().split('T')[0]}
-                  onChange={e => setNewClosure({ ...newClosure, date: e.target.value })}
-                />
-                <input
-                  type="text"
-                  placeholder="Reason (optional)"
-                  value={newClosure.reason}
-                  onChange={e => setNewClosure({ ...newClosure, reason: e.target.value })}
-                />
+                <div className="form-group">
+                  <label>Date</label>
+                  <DatePicker
+                    value={newClosure.date}
+                    onChange={(d) => setNewClosure({ ...newClosure, date: d })}
+                    specialClosures={form.special_closures}
+                    minDate={new Date().toISOString().split('T')[0]}
+                    placeholder="Pick a date"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Reason <span className="label-optional">*optional</span></label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Christmas Day"
+                    value={newClosure.reason}
+                    onChange={e => setNewClosure({ ...newClosure, reason: e.target.value })}
+                  />
+                </div>
                 <button
                   type="button"
                   className="closure-add-btn"

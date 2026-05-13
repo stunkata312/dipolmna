@@ -89,7 +89,7 @@ function LoginModal({ onClose }) {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="auth-phone">Phone (optional)</label>
+                <label htmlFor="auth-phone">Phone <span className="label-optional">*optional</span></label>
                 <input
                   type="tel"
                   id="auth-phone"

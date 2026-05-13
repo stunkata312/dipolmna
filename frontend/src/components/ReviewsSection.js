@@ -255,6 +255,17 @@ function ReviewsSection({ restaurantId, ownerId }) {
                   </div>
                 </div>
                 {r.comment && <p className="review-comment">{r.comment}</p>}
+                {r.owner_reply && r.owner_reply.trim() && (
+                  <div className="review-owner-reply">
+                    <div className="review-owner-reply-head">
+                      <strong>Reply from the restaurant</strong>
+                      {r.owner_reply_at && (
+                        <span className="review-date">{formatRelative(r.owner_reply_at)}</span>
+                      )}
+                    </div>
+                    <p className="review-owner-reply-text">{r.owner_reply}</p>
+                  </div>
+                )}
               </div>
             );
           })}

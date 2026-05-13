@@ -287,119 +287,26 @@ function ProfilePage() {
     cancelReservation.mutate(id);
   };
 
-  const renderTimelineNode = (reservation, isPast) => {
-    const isExpanded = expandedId === reservation.id;
-    const isConfirming = confirmCancelId === reservation.id;
-    const meta = STATUS_META[reservation.status] || STATUS_META.confirmed;
-    const day = formatDay(reservation.date);
-
-    return (
-      <div key={reservation.id} className={`timeline-node${isExpanded ? ' timeline-node-expanded' : ''}`}>
-        <div className="timeline-date">
-          <span className="timeline-date-day">{day.day}</span>
-          <span className="timeline-date-month">{day.month}</span>
-          <span className="timeline-date-weekday">{day.weekday}</span>
-        </div>
-
-        <div className={`timeline-dot ${meta.cls}`} aria-hidden="true" />
-
-        <div
-          className={`timeline-card${!isPast ? ' timeline-card-clickable' : ''}`}
-          onClick={!isPast ? () => handleExpand(reservation) : undefined}
-        >
-          <div className="timeline-card-top">
-            <div className="timeline-restaurant">
-              {reservation.restaurant_image ? (
-                <img src={reservation.restaurant_image} alt={reservation.restaurant_name} className="timeline-restaurant-img" />
-              ) : (
-                <div className="timeline-restaurant-img timeline-restaurant-placeholder">
-                  {reservation.restaurant_name?.charAt(0) || '?'}
-                </div>
-              )}
-              <div>
-                <h3 className="timeline-restaurant-name">{reservation.restaurant_name}</h3>
-                <div className="timeline-meta-row">
-                  <span>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-                    </svg>
-                    {reservation.time}
-                  </span>
-                  <span>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
-                    </svg>
-                    {reservation.num_people} {reservation.num_people === 1 ? 'guest' : 'guests'}
-                  </span>
-                  {reservation.assigned_table && (
-                    <span>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" />
-                      </svg>
-                      Table {reservation.assigned_table}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-            <span className={`timeline-status-badge ${meta.cls}`}>{meta.label}</span>
-          </div>
-
-          {isExpanded && !isPast && (
-            <div className="timeline-edit-panel" onClick={(e) => e.stopPropagation()}>
-              {actionError && <div className="error-message">{actionError}</div>}
-              <EditPanelBody
-                editData={editData}
-                setEditData={setEditData}
-                handleEditChange={handleEditChange}
-                today={today}
-                editRestaurant={editRestaurant}
-                editAvailability={editAvailability}
-                currentPreferredTable={reservation.preferred_table}
-              />
-              <div className="edit-actions">
-                <button className="save-btn" onClick={() => handleSave(reservation.id)} disabled={saving}>
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </button>
-                {!isConfirming ? (
-                  <button
-                    className="cancel-reservation-btn"
-                    onClick={(e) => { e.stopPropagation(); setConfirmCancelId(reservation.id); }}
-                    disabled={saving}
-                  >
-                    Cancel Reservation
-                  </button>
-                ) : (
-                  <div className="confirm-cancel">
-                    <span>Are you sure?</span>
-                    <button className="confirm-yes" onClick={() => handleCancel(reservation.id)} disabled={saving}>
-                      {saving ? 'Cancelling...' : 'Yes, cancel it'}
-                    </button>
-                    <button className="confirm-no" onClick={() => setConfirmCancelId(null)} disabled={saving}>
-                      No, keep it
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   const activeGroups = tab === 'upcoming' ? upcomingGroups : historyGroups;
   const activeIsPast = tab !== 'upcoming';
 
-  // Owner-style compact card used for History tab
-  const renderHistoryCard = (reservation) => {
-    const meta = STATUS_META[reservation.status] || STATUS_META.completed;
+  // Owner-style compact card. For upcoming reservations, it's clickable and
+  // expands an inline edit panel; for history items it's purely informational.
+  const renderHistoryCard = (reservation, isPast) => {
+    const meta = STATUS_META[reservation.status]
+      || (isPast ? STATUS_META.completed : STATUS_META.confirmed);
     const dateLabel = new Date(reservation.date + 'T00:00:00').toLocaleDateString('en-GB', {
       weekday: 'short', day: 'numeric', month: 'short',
     });
+    const isExpanded = !isPast && expandedId === reservation.id;
+    const isConfirming = confirmCancelId === reservation.id;
 
     return (
-      <div key={reservation.id} className={`history-card history-card-${reservation.status}`}>
+      <div
+        key={reservation.id}
+        className={`history-card history-card-${reservation.status}${!isPast ? ' history-card-clickable' : ''}${isExpanded ? ' history-card-expanded' : ''}`}
+        onClick={!isPast ? () => handleExpand(reservation) : undefined}
+      >
         <div className="history-card-header">
           <div className="history-card-restaurant">
             {reservation.restaurant_image ? (
@@ -441,6 +348,45 @@ function ProfilePage() {
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
             <em>{reservation.notes}</em>
+          </div>
+        )}
+
+        {isExpanded && (
+          <div className="timeline-edit-panel" onClick={(e) => e.stopPropagation()}>
+            {actionError && <div className="error-message">{actionError}</div>}
+            <EditPanelBody
+              editData={editData}
+              setEditData={setEditData}
+              handleEditChange={handleEditChange}
+              today={today}
+              editRestaurant={editRestaurant}
+              editAvailability={editAvailability}
+              currentPreferredTable={reservation.preferred_table}
+            />
+            <div className="edit-actions">
+              <button className="save-btn" onClick={() => handleSave(reservation.id)} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+              {!isConfirming ? (
+                <button
+                  className="cancel-reservation-btn"
+                  onClick={(e) => { e.stopPropagation(); setConfirmCancelId(reservation.id); }}
+                  disabled={saving}
+                >
+                  Cancel Reservation
+                </button>
+              ) : (
+                <div className="confirm-cancel">
+                  <span>Are you sure?</span>
+                  <button className="confirm-yes" onClick={() => handleCancel(reservation.id)} disabled={saving}>
+                    {saving ? 'Cancelling...' : 'Yes, cancel it'}
+                  </button>
+                  <button className="confirm-no" onClick={() => setConfirmCancelId(null)} disabled={saving}>
+                    No, keep it
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -533,18 +479,6 @@ function ProfilePage() {
                   <p>No past reservations yet.</p>
                 )}
               </div>
-            ) : tab === 'upcoming' ? (
-              <div className="timeline">
-                {activeGroups.map(group => (
-                  <div key={group.key} className="timeline-month">
-                    <div className="timeline-month-header">
-                      <span>{group.label}</span>
-                      <span className="timeline-month-count">{group.items.length}</span>
-                    </div>
-                    {group.items.map(r => renderTimelineNode(r, activeIsPast))}
-                  </div>
-                ))}
-              </div>
             ) : (
               <div className="history-list">
                 {activeGroups.map(group => (
@@ -554,7 +488,7 @@ function ProfilePage() {
                       <span className="history-month-count">{group.items.length}</span>
                     </div>
                     <div className="history-cards">
-                      {group.items.map(r => renderHistoryCard(r))}
+                      {group.items.map(r => renderHistoryCard(r, activeIsPast))}
                     </div>
                   </div>
                 ))}

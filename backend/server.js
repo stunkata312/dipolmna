@@ -54,6 +54,12 @@ app.put('/api/restaurant/reservations/:id/status', requireRestaurantOwner, Resta
 app.post('/api/restaurant/reservations/clear-arrived', requireRestaurantOwner, RestaurantAdminController.clearArrivedToday);
 app.put('/api/restaurant/reservations/:id', requireRestaurantOwner, RestaurantAdminController.modifyReservation);
 
+// Owner-only review moderation
+app.get('/api/restaurant/reviews', requireRestaurantOwner, ReviewController.ownerList);
+app.put('/api/restaurant/reviews/:reviewId/reply', requireRestaurantOwner, ReviewController.setReply);
+app.delete('/api/restaurant/reviews/:reviewId/reply', requireRestaurantOwner, ReviewController.clearReply);
+app.put('/api/restaurant/reviews/:reviewId/hidden', requireRestaurantOwner, ReviewController.setHidden);
+
 // Reservation maintenance — runs on startup, then every 15 min as a safety net
 // (the same sweeps also run on every dashboard / user-reservations fetch)
 const ReservationModel = require('./models/reservationModel');

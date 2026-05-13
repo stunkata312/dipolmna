@@ -7,20 +7,33 @@ const stmts = {
     ON CONFLICT(restaurant_id, user_id) DO UPDATE SET
       rating = excluded.rating,
       comment = excluded.comment,
-      created_at = CURRENT_TIMESTAMP
+      created_at = CURRENT_TIMESTAMP,
+      owner_reply = NULL,
+      owner_reply_at = NULL
   `),
   listByRestaurant: db.prepare(`
     SELECT r.id, r.rating, r.comment, r.created_at,
+           r.owner_reply, r.owner_reply_at, r.hidden,
            u.id AS user_id, u.name AS user_name, u.avatar_url
     FROM reviews r
     LEFT JOIN users u ON r.user_id = u.id
     WHERE r.restaurant_id = ?
     ORDER BY r.created_at DESC
   `),
+  listVisibleByRestaurant: db.prepare(`
+    SELECT r.id, r.rating, r.comment, r.created_at,
+           r.owner_reply, r.owner_reply_at, r.hidden,
+           u.id AS user_id, u.name AS user_name, u.avatar_url
+    FROM reviews r
+    LEFT JOIN users u ON r.user_id = u.id
+    WHERE r.restaurant_id = ? AND r.hidden = 0
+    ORDER BY r.created_at DESC
+  `),
   getByUserAndRestaurant: db.prepare(`
     SELECT * FROM reviews WHERE restaurant_id = ? AND user_id = ?
   `),
-  // Average rating + count by star bucket
+  getById: db.prepare('SELECT * FROM reviews WHERE id = ?'),
+  // Average rating + count by star bucket (across ALL reviews, hidden or not)
   stats: db.prepare(`
     SELECT
       COUNT(*) AS total,
@@ -34,6 +47,19 @@ const stmts = {
   `),
   setRestaurantRating: db.prepare('UPDATE restaurants SET rating = ? WHERE id = ?'),
   deleteByUserAndRestaurant: db.prepare('DELETE FROM reviews WHERE restaurant_id = ? AND user_id = ?'),
+  setReply: db.prepare(`
+    UPDATE reviews
+    SET owner_reply = ?, owner_reply_at = CURRENT_TIMESTAMP
+    WHERE id = ? AND restaurant_id = ?
+  `),
+  clearReply: db.prepare(`
+    UPDATE reviews
+    SET owner_reply = NULL, owner_reply_at = NULL
+    WHERE id = ? AND restaurant_id = ?
+  `),
+  setHidden: db.prepare(`
+    UPDATE reviews SET hidden = ? WHERE id = ? AND restaurant_id = ?
+  `),
 };
 
 const ReviewModel = {
@@ -46,8 +72,18 @@ const ReviewModel = {
     return stmts.getByUserAndRestaurant.get(restaurant_id, user_id);
   },
 
+  // Public view — hidden reviews are excluded from the list
+  listVisibleByRestaurant(restaurant_id) {
+    return stmts.listVisibleByRestaurant.all(restaurant_id);
+  },
+
+  // Owner view — all reviews including hidden ones
   listByRestaurant(restaurant_id) {
     return stmts.listByRestaurant.all(restaurant_id);
+  },
+
+  getById(id) {
+    return stmts.getById.get(id);
   },
 
   getStats(restaurant_id) {
@@ -76,6 +112,22 @@ const ReviewModel = {
     const avg = s && s.total > 0 ? s.avg : 0;
     stmts.setRestaurantRating.run(avg, restaurant_id);
     return result.changes > 0;
+  },
+
+  setReply(restaurant_id, review_id, reply) {
+    const text = (reply || '').trim();
+    if (!text) {
+      return stmts.clearReply.run(review_id, restaurant_id).changes > 0;
+    }
+    return stmts.setReply.run(text, review_id, restaurant_id).changes > 0;
+  },
+
+  clearReply(restaurant_id, review_id) {
+    return stmts.clearReply.run(review_id, restaurant_id).changes > 0;
+  },
+
+  setHidden(restaurant_id, review_id, hidden) {
+    return stmts.setHidden.run(hidden ? 1 : 0, review_id, restaurant_id).changes > 0;
   },
 };
 

@@ -63,35 +63,35 @@
 
 /* Light theme overrides */
 [data-theme="light"] {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f4f7ff;
-  --bg-card: rgba(255, 255, 255, 0.92);
-  --bg-card-solid: #ffffff;
-  --bg-elevated: rgba(244, 247, 255, 0.95);
-  --bg-header: rgba(235, 241, 255, 0.85);
+  --bg-primary: #faf6ec;
+  --bg-secondary: #f3ecdb;
+  --bg-card: rgba(253, 250, 242, 0.92);
+  --bg-card-solid: #fdfaf2;
+  --bg-elevated: rgba(247, 241, 227, 0.95);
+  --bg-header: rgba(245, 238, 220, 0.85);
 
-  --glass-bg: rgba(37, 99, 235, 0.05);
-  --glass-border: rgba(37, 99, 235, 0.16);
-  --glass-hover: rgba(37, 99, 235, 0.1);
+  --glass-bg: rgba(29, 78, 216, 0.05);
+  --glass-border: rgba(29, 78, 216, 0.16);
+  --glass-hover: rgba(29, 78, 216, 0.1);
 
-  --accent: #2563eb;
-  --accent-light: #3b82f6;
-  --accent-dim: rgba(37, 99, 235, 0.12);
-  --accent-glow: rgba(37, 99, 235, 0.3);
-  --accent-gradient-end: #1d4ed8;
+  --accent: #1d4ed8;
+  --accent-light: #2563eb;
+  --accent-dim: rgba(29, 78, 216, 0.12);
+  --accent-glow: rgba(29, 78, 216, 0.3);
+  --accent-gradient-end: #1e40af;
   --on-accent: #ffffff;
 
   --teal: #0e7490;
   --teal-dim: rgba(14, 116, 144, 0.12);
 
-  --text-primary: #2563eb;
-  --text-secondary: rgba(37, 99, 235, 0.72);
-  --text-muted: rgba(37, 99, 235, 0.48);
+  --text-primary: #1d4ed8;
+  --text-secondary: rgba(29, 78, 216, 0.72);
+  --text-muted: rgba(29, 78, 216, 0.48);
 
-  --shadow-sm: 0 2px 8px rgba(37, 99, 235, 0.08);
-  --shadow-md: 0 8px 32px rgba(37, 99, 235, 0.12);
-  --shadow-lg: 0 16px 48px rgba(37, 99, 235, 0.18);
-  --shadow-glow: 0 0 30px rgba(37, 99, 235, 0.14);
+  --shadow-sm: 0 2px 8px rgba(29, 78, 216, 0.08);
+  --shadow-md: 0 8px 32px rgba(29, 78, 216, 0.12);
+  --shadow-lg: 0 16px 48px rgba(29, 78, 216, 0.18);
+  --shadow-glow: 0 0 30px rgba(29, 78, 216, 0.14);
 }
 
 [data-theme="light"] body::before {
@@ -99,15 +99,15 @@
 }
 
 [data-theme="light"] body::after {
-  background: radial-gradient(ellipse, rgba(37, 99, 235, 0.08) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(29, 78, 216, 0.08) 0%, transparent 70%);
 }
 
 [data-theme="light"] ::-webkit-scrollbar-thumb {
-  background: rgba(37, 99, 235, 0.2);
+  background: rgba(29, 78, 216, 0.2);
 }
 
 [data-theme="light"] ::-webkit-scrollbar-thumb:hover {
-  background: rgba(37, 99, 235, 0.36);
+  background: rgba(29, 78, 216, 0.36);
 }
 
 * {
