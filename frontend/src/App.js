@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { ThemeProvider } from './context/ThemeContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import UserMenu from './components/UserMenu';
 import LoginModal from './components/LoginModal';
 import ThemeToggle from './components/ThemeToggle';
@@ -31,13 +31,18 @@ const queryClient = new QueryClient({
 function AppContent() {
   const [showLogin, setShowLogin] = useState(false);
   const { user } = useAuth();
+  const { theme } = useTheme();
+  // Only the restaurant owner role lands on the dashboard from the logo.
+  // Hostesses keep a normal customer experience for the logo + the rest of the
+  // site, with the dashboard reachable only via the user-menu dropdown.
   const logoTo = user?.role === 'restaurant' ? '/restaurant/dashboard' : '/';
+  const logoSrc = theme === 'light' ? '/logo_light.png' : '/logo_dark.png';
 
   return (
     <div className="App">
       <header className="app-header">
         <Link to={logoTo} className="logo">
-          <img src="/logo.png" alt="TakeASeat logo" className="logo-img" />
+          <img src={logoSrc} alt="TakeASeat logo" className="logo-img" />
           <span className="logo-text">TakeASeat</span>
         </Link>
         <div className="header-right">

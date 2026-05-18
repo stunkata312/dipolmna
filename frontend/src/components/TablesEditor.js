@@ -61,11 +61,12 @@ function TablesEditor({ value = [], onChange }) {
         </div>
         <div className="form-group tables-editor-field">
           <label>Seats per Table</label>
-          <Dropdown
-            value={parseInt(seats, 10)}
-            options={SEAT_OPTIONS_LABELED}
-            onChange={(v) => setSeats(v)}
-            ariaLabel="Seats per table"
+          <input
+            type="number"
+            min="1"
+            max="20"
+            value={seats}
+            onChange={e => setSeats(e.target.value)}
           />
         </div>
         <button

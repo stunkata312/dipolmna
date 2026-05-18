@@ -93,11 +93,14 @@ function ReviewsSection({ restaurantId, ownerId }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (rating < 1 || rating > 5) {
+    // Editing your own review without touching the stars is fine — fall back
+    // to your existing rating so the post goes through.
+    const effectiveRating = rating > 0 ? rating : (myReview?.rating || 0);
+    if (effectiveRating < 1 || effectiveRating > 5) {
       setSubmitErr('Please pick a rating from 1 to 5 stars');
       return;
     }
-    submit.mutate({ rating, comment });
+    submit.mutate({ rating: effectiveRating, comment });
   };
 
   const handleRedact = (review) => {
@@ -133,7 +136,7 @@ function ReviewsSection({ restaurantId, ownerId }) {
       {/* Summary */}
       <div className="reviews-summary">
         <div className="reviews-avg">
-          <span className="reviews-avg-num">{stats.total > 0 ? stats.avg.toFixed(1) : '–'}</span>
+          <span className="reviews-avg-num">{stats.total > 0 ? stats.avg.toFixed(1) : '-'}</span>
           <StarRating rating={stats.avg} />
           <span className="reviews-count">
             {stats.total} {stats.total === 1 ? 'review' : 'reviews'}
@@ -172,7 +175,11 @@ function ReviewsSection({ restaurantId, ownerId }) {
               maxLength={1000}
             />
             <div className="leave-review-actions">
-              <button type="submit" className="submit-btn submit-btn-compact" disabled={submit.isPending || remove.isPending || rating === 0}>
+              <button
+                type="submit"
+                className="submit-btn submit-btn-compact"
+                disabled={submit.isPending || remove.isPending || (rating === 0 && !myReview)}
+              >
                 {submit.isPending ? 'Saving…' : myReview ? 'Update review' : 'Submit review'}
               </button>
               {myReview && editingMine && !confirmDelete && (
@@ -226,9 +233,15 @@ function ReviewsSection({ restaurantId, ownerId }) {
         <div className="reviews-list">
           {orderedReviews.map(r => {
             const isMine = !!user && r.user_id === user.id;
+            const isHidden = !!r.hidden;
+            // The public sees hidden rows as ordinary star-only reviews —
+            // no pill, no dashed border, no comment (the server already
+            // redacted it). Only the author gets the "Hidden by restaurant"
+            // treatment so they know what happened.
+            const showAsHidden = isHidden && isMine;
             return (
-              <div key={r.id} className="review-item">
-                {isMine && (
+              <div key={r.id} className={`review-item${showAsHidden ? ' review-item-hidden' : ''}`}>
+                {isMine && !isHidden && (
                   <button
                     type="button"
                     className="review-redact-btn"
@@ -251,6 +264,9 @@ function ReviewsSection({ restaurantId, ownerId }) {
                     <div className="review-meta-row">
                       <StarRating rating={r.rating} />
                       <span className="review-date">{formatRelative(r.created_at)}</span>
+                      {showAsHidden && (
+                        <span className="review-hidden-pill">Hidden by restaurant</span>
+                      )}
                     </div>
                   </div>
                 </div>

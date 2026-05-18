@@ -36,18 +36,20 @@ function RestaurantDashboardPage() {
   const [activeTab, setActiveTab] = useState('pending');
   const [actionLoading, setActionLoading] = useState(null);
   const [actionError, setActionError] = useState(null);
+  const [walkInOpen, setWalkInOpen] = useState(false);
 
   const isOwner = !!user && user.role === 'restaurant';
+  const isStaff = !!user && (user.role === 'restaurant' || user.role === 'hostess');
 
   useEffect(() => {
-    if (user && user.role !== 'restaurant') navigate('/');
+    if (user && user.role !== 'restaurant' && user.role !== 'hostess') navigate('/');
   }, [user, navigate]);
 
   const { data, isLoading: loading, error } = useQuery({
     queryKey: DASHBOARD_KEY,
     queryFn: () => apiFetch('/restaurant/dashboard'),
-    enabled: isOwner,
-    refetchInterval: 60_000,
+    enabled: isStaff,
+    refetchInterval: 5_000,
     refetchIntervalInBackground: false,
   });
 
@@ -60,7 +62,7 @@ function RestaurantDashboardPage() {
   const { data: reviewsData } = useQuery({
     queryKey: ['restaurant', 'owner-reviews'],
     queryFn: () => apiFetch('/restaurant/reviews'),
-    enabled: isOwner,
+    enabled: isStaff,
     staleTime: 30_000,
   });
 
@@ -170,7 +172,7 @@ function RestaurantDashboardPage() {
     }
   };
 
-  if (!user || user.role !== 'restaurant') return null;
+  if (!user || (user.role !== 'restaurant' && user.role !== 'hostess')) return null;
   if (loading) return <div className="loading">Loading dashboard...</div>;
   if (error) return <div className="error-message">{error.message || 'Failed to load dashboard'}</div>;
 
@@ -189,17 +191,46 @@ function RestaurantDashboardPage() {
           <h1 className="dashboard-title">{restaurant.name}</h1>
           <p className="dashboard-subtitle">{restaurant.address}</p>
         </div>
-        <button
-          className="dashboard-settings-btn"
-          onClick={() => navigate('/restaurant/settings')}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-          </svg>
-          Settings
-        </button>
+        <div className="dashboard-header-actions">
+          <button
+            className="dashboard-walkin-btn"
+            onClick={() => setWalkInOpen(true)}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <line x1="19" y1="8" x2="19" y2="14" />
+              <line x1="22" y1="11" x2="16" y2="11" />
+            </svg>
+            Add Walk-in
+          </button>
+        {isOwner && (
+          <button
+            className="dashboard-settings-btn"
+            onClick={() => navigate('/restaurant/settings')}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+            Settings
+          </button>
+        )}
+        </div>
       </div>
+
+      {walkInOpen && (
+        <WalkInModal
+          tables={restaurantTables}
+          arrivedTableIds={(data?.upcoming || [])
+            .concat(data?.completed || [])
+            .filter(r => r.status === 'arrived')
+            .map(r => r.assigned_table)
+            .filter(Boolean)}
+          onClose={() => setWalkInOpen(false)}
+          onCreated={() => { setWalkInOpen(false); refreshDashboard(); }}
+        />
+      )}
 
       {/* Stats row */}
       <div className="dashboard-stats">
@@ -417,7 +448,7 @@ function RestaurantDashboardPage() {
       {/* Reviews tab */}
       {activeTab === 'reviews' && (
         <div className="dashboard-section">
-          <ReviewsTabContent reviewsData={reviewsData} />
+          <ReviewsTabContent reviewsData={reviewsData} isOwner={isOwner} />
         </div>
       )}
     </div>
@@ -830,7 +861,7 @@ function ModifyForm({ reservationId, current, restaurant, tables, takenForDate, 
   );
 }
 
-function ReviewsTabContent({ reviewsData }) {
+function ReviewsTabContent({ reviewsData, isOwner }) {
   if (!reviewsData) {
     return <div className="loading">Loading reviews…</div>;
   }
@@ -878,7 +909,7 @@ function ReviewsTabContent({ reviewsData }) {
 
       <div className="reviews-list">
         {reviews.map(r => (
-          <OwnerReviewItem key={r.id} review={r} />
+          <OwnerReviewItem key={r.id} review={r} isOwner={isOwner} />
         ))}
       </div>
     </>
@@ -890,7 +921,7 @@ function formatReviewDate(iso) {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function OwnerReviewItem({ review }) {
+function OwnerReviewItem({ review, isOwner }) {
   const queryClient = useQueryClient();
   const isHidden = !!review.hidden;
   const hasReply = !!(review.owner_reply && review.owner_reply.trim());
@@ -958,19 +989,24 @@ function OwnerReviewItem({ review }) {
             <StarRating rating={review.rating} />
             <span className="review-date">{formatReviewDate(review.created_at)}</span>
             {isHidden && <span className="review-hidden-pill">Hidden</span>}
+            {review.edited_after_hide ? (
+              <span className="review-edited-pill">EDITED</span>
+            ) : null}
           </div>
         </div>
-        <div className="review-owner-actions">
-          <button
-            type="button"
-            className="review-action-btn"
-            onClick={() => toggleHidden.mutate()}
-            disabled={busy}
-            title={isHidden ? 'Show on public page' : 'Hide from public page'}
-          >
-            {toggleHidden.isPending ? '…' : isHidden ? 'Show' : 'Hide'}
-          </button>
-        </div>
+        {isOwner && (
+          <div className="review-owner-actions">
+            <button
+              type="button"
+              className="review-action-btn"
+              onClick={() => toggleHidden.mutate()}
+              disabled={busy}
+              title={isHidden ? 'Show on public page' : 'Hide from public page'}
+            >
+              {toggleHidden.isPending ? '…' : isHidden ? 'Show' : 'Hide'}
+            </button>
+          </div>
+        )}
       </div>
       {review.comment && <p className="review-comment">{review.comment}</p>}
 
@@ -983,45 +1019,47 @@ function OwnerReviewItem({ review }) {
             )}
           </div>
           <p className="review-owner-reply-text">{review.owner_reply}</p>
-          <div className="review-owner-reply-actions">
-            <button type="button" className="review-action-btn" onClick={startEdit} disabled={busy}>
-              Edit
-            </button>
-            {!confirmDelete ? (
-              <button
-                type="button"
-                className="review-action-btn review-action-danger"
-                onClick={() => setConfirmDelete(true)}
-                disabled={busy}
-              >
-                Delete
+          {isOwner && (
+            <div className="review-owner-reply-actions">
+              <button type="button" className="review-action-btn" onClick={startEdit} disabled={busy}>
+                Edit
               </button>
-            ) : (
-              <div className="confirm-cancel">
-                <span>Delete reply?</span>
+              {!confirmDelete ? (
                 <button
                   type="button"
-                  className="confirm-yes"
-                  onClick={() => deleteReply.mutate()}
+                  className="review-action-btn review-action-danger"
+                  onClick={() => setConfirmDelete(true)}
                   disabled={busy}
                 >
-                  {deleteReply.isPending ? 'Deleting…' : 'Yes'}
+                  Delete
                 </button>
-                <button
-                  type="button"
-                  className="confirm-no"
-                  onClick={() => setConfirmDelete(false)}
-                  disabled={busy}
-                >
-                  No
-                </button>
-              </div>
-            )}
-          </div>
+              ) : (
+                <div className="confirm-cancel">
+                  <span>Delete reply?</span>
+                  <button
+                    type="button"
+                    className="confirm-yes"
+                    onClick={() => deleteReply.mutate()}
+                    disabled={busy}
+                  >
+                    {deleteReply.isPending ? 'Deleting…' : 'Yes'}
+                  </button>
+                  <button
+                    type="button"
+                    className="confirm-no"
+                    onClick={() => setConfirmDelete(false)}
+                    disabled={busy}
+                  >
+                    No
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      {(!hasReply || editingReply) && (
+      {isOwner && (!hasReply || editingReply) && (
         <div className="review-reply-form">
           <textarea
             className="review-reply-textarea"
@@ -1055,6 +1093,106 @@ function OwnerReviewItem({ review }) {
       )}
 
       {error && <div className="form-feedback error-message">{error}</div>}
+    </div>
+  );
+}
+
+function WalkInModal({ tables, arrivedTableIds, onClose, onCreated }) {
+  const [name, setName] = useState('');
+  const [numPeople, setNumPeople] = useState(2);
+  const [tableId, setTableId] = useState(null);
+  const [error, setError] = useState(null);
+
+  const create = useMutation({
+    mutationFn: (body) => apiFetch('/restaurant/walk-in', { method: 'POST', body }),
+    onSuccess: () => onCreated?.(),
+    onError: (err) => setError(err.message),
+  });
+
+  const taken = new Set(arrivedTableIds);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setError(null);
+    if (!tableId) { setError('Pick a table'); return; }
+    const size = parseInt(numPeople, 10);
+    if (!Number.isFinite(size) || size <= 0) { setError('Party size must be at least 1'); return; }
+    create.mutate({
+      num_people: size,
+      assigned_table: tableId,
+      name: name.trim() || undefined,
+    });
+  };
+
+  // Sort tiles: those that fit the party come first, then smaller ones; tied
+  // by id. Tables that are too small or already occupied get a disabled style.
+  const sorted = [...tables].sort((a, b) => {
+    const fitsA = a.seats >= numPeople ? 0 : 1;
+    const fitsB = b.seats >= numPeople ? 0 : 1;
+    if (fitsA !== fitsB) return fitsA - fitsB;
+    return a.seats - b.seats || a.id - b.id;
+  });
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content walk-in-modal" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="modal-close" onClick={onClose}>&times;</button>
+        <h2>Seat a Walk-in</h2>
+        <p className="schedule-hint">
+          Log a guest who came in without a reservation. Their table is marked occupied immediately.
+        </p>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>Party Size</label>
+            <input
+              type="number"
+              min="1"
+              max="50"
+              value={numPeople}
+              onChange={(e) => setNumPeople(e.target.value)}
+            />
+          </div>
+          <div className="form-group">
+            <label>Name <span className="label-optional">*optional</span></label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Walk-in"
+            />
+          </div>
+          <div className="form-group">
+            <label>Table</label>
+            <div className="customer-table-grid walk-in-table-grid">
+              {sorted.map(t => {
+                const occupied = taken.has(t.id);
+                const tooSmall = t.seats < parseInt(numPeople, 10);
+                const disabled = occupied || tooSmall;
+                const isSelected = tableId === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`customer-table-cell${isSelected ? ' is-selected' : ''}${disabled ? ' is-disabled' : ''}`}
+                    onClick={() => !disabled && setTableId(t.id)}
+                    disabled={disabled}
+                    title={occupied ? 'Currently occupied' : tooSmall ? `Only seats ${t.seats}` : `Table ${t.id} · ${t.seats} seats`}
+                  >
+                    <span className="customer-table-num">{t.id}</span>
+                    <span className="customer-table-seats">
+                      {occupied ? 'Occupied' : `${t.seats} seats`}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {error && <div className="error-message">{error}</div>}
+          <button type="submit" className="submit-btn" disabled={create.isPending}>
+            {create.isPending ? 'Seating…' : 'Seat Walk-in'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

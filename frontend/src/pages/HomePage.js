@@ -25,7 +25,7 @@ function makeRestaurantIcon(rating, hovered) {
     className: 'rest-pin-wrap',
     html: `
       <div class="rest-pin rest-pin-${tier}${hovered ? ' rest-pin-hovered' : ''}">
-        <span class="rest-pin-rating">${safe ? safe.toFixed(1) : '–'}</span>
+        <span class="rest-pin-rating">${safe ? safe.toFixed(1) : '-'}</span>
       </div>
     `,
     iconSize: [40, 48],

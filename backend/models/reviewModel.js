@@ -13,7 +13,7 @@ const stmts = {
   `),
   listByRestaurant: db.prepare(`
     SELECT r.id, r.rating, r.comment, r.created_at,
-           r.owner_reply, r.owner_reply_at, r.hidden,
+           r.owner_reply, r.owner_reply_at, r.hidden, r.edited_after_hide,
            u.id AS user_id, u.name AS user_name, u.avatar_url
     FROM reviews r
     LEFT JOIN users u ON r.user_id = u.id
@@ -22,7 +22,7 @@ const stmts = {
   `),
   listVisibleByRestaurant: db.prepare(`
     SELECT r.id, r.rating, r.comment, r.created_at,
-           r.owner_reply, r.owner_reply_at, r.hidden,
+           r.owner_reply, r.owner_reply_at, r.hidden, r.edited_after_hide,
            u.id AS user_id, u.name AS user_name, u.avatar_url
     FROM reviews r
     LEFT JOIN users u ON r.user_id = u.id
@@ -60,11 +60,38 @@ const stmts = {
   setHidden: db.prepare(`
     UPDATE reviews SET hidden = ? WHERE id = ? AND restaurant_id = ?
   `),
+  // Moderation hold — once a review is hidden, this remembers the
+  // (restaurant, user) pair so future re-submissions auto-hide.
+  addHold: db.prepare(`
+    INSERT OR IGNORE INTO review_moderation_holds (restaurant_id, user_id) VALUES (?, ?)
+  `),
+  removeHold: db.prepare(`
+    DELETE FROM review_moderation_holds WHERE restaurant_id = ? AND user_id = ?
+  `),
+  hasHold: db.prepare(`
+    SELECT 1 FROM review_moderation_holds WHERE restaurant_id = ? AND user_id = ?
+  `),
+  setEditedAfterHide: db.prepare(`
+    UPDATE reviews SET edited_after_hide = ? WHERE id = ? AND restaurant_id = ?
+  `),
 };
 
 const ReviewModel = {
   upsert({ restaurant_id, user_id, rating, comment }) {
     stmts.upsert.run(restaurant_id, user_id, rating, comment || null);
+    // If this user previously had a hidden review for this restaurant, the
+    // hold is still active — force the new submission into the hidden state
+    // so the owner doesn't have to chase the same person twice. Also flag
+    // the row as "edited after hide" so the owner dashboard can surface a
+    // badge and they can re-evaluate.
+    const held = stmts.hasHold.get(restaurant_id, user_id);
+    if (held) {
+      const fresh = stmts.getByUserAndRestaurant.get(restaurant_id, user_id);
+      if (fresh) {
+        stmts.setHidden.run(1, fresh.id, restaurant_id);
+        stmts.setEditedAfterHide.run(1, fresh.id, restaurant_id);
+      }
+    }
     // Recalculate the restaurant's aggregate rating
     const s = stmts.stats.get(restaurant_id);
     const avg = s && s.total > 0 ? s.avg : 0;
@@ -127,7 +154,22 @@ const ReviewModel = {
   },
 
   setHidden(restaurant_id, review_id, hidden) {
-    return stmts.setHidden.run(hidden ? 1 : 0, review_id, restaurant_id).changes > 0;
+    const changed = stmts.setHidden.run(hidden ? 1 : 0, review_id, restaurant_id).changes > 0;
+    if (changed) {
+      // Look up the review to find which user the hold should target.
+      const row = stmts.getById.get(review_id);
+      if (row) {
+        if (hidden) {
+          stmts.addHold.run(restaurant_id, row.user_id);
+        } else {
+          stmts.removeHold.run(restaurant_id, row.user_id);
+          // Owner accepted this version — clear the edited badge so it
+          // doesn't keep showing after they re-hide a brand-new offense.
+          stmts.setEditedAfterHide.run(0, review_id, restaurant_id);
+        }
+      }
+    }
+    return changed;
   },
 };
 

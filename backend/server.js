@@ -8,7 +8,7 @@ const AuthController = require('./controllers/authController');
 const UserController = require('./controllers/userController');
 const RestaurantAdminController = require('./controllers/restaurantAdminController');
 const ReviewController = require('./controllers/reviewController');
-const { requireAuth, requireRestaurantOwner } = require('./middleware/auth');
+const { requireAuth, optionalAuth, requireRestaurantOwner, requireRestaurantStaff } = require('./middleware/auth');
 
 const app = express();
 const PORT = 3001;
@@ -25,7 +25,7 @@ app.get('/api/restaurants/:id', RestaurantController.getById);
 app.get('/api/restaurants/:id/availability', RestaurantController.getAvailability);
 
 // Reviews
-app.get('/api/restaurants/:id/reviews', ReviewController.list);
+app.get('/api/restaurants/:id/reviews', optionalAuth, ReviewController.list);
 app.post('/api/restaurants/:id/reviews', requireAuth, ReviewController.create);
 app.delete('/api/restaurants/:id/reviews/me', requireAuth, ReviewController.remove);
 
@@ -39,23 +39,33 @@ app.post('/api/auth/register', AuthController.register);
 app.post('/api/auth/login', AuthController.login);
 app.post('/api/auth/google', AuthController.googleLogin);
 app.get('/api/auth/me', requireAuth, AuthController.me);
+app.put('/api/auth/me', requireAuth, AuthController.updateMe);
 
 // User routes
 app.get('/api/user/reservations', requireAuth, UserController.getReservations);
 
 // Restaurant owner routes
 app.post('/api/restaurant/register', RestaurantAdminController.register);
-app.get('/api/restaurant/me', requireRestaurantOwner, RestaurantAdminController.getMyRestaurant);
+// Settings page (PUT) stays owner-only; hostesses must not be able to mutate restaurant config.
+app.get('/api/restaurant/me', requireRestaurantStaff, RestaurantAdminController.getMyRestaurant);
 app.put('/api/restaurant/me', requireRestaurantOwner, RestaurantAdminController.updateMyRestaurant);
-app.get('/api/restaurant/dashboard', requireRestaurantOwner, RestaurantAdminController.getDashboard);
-app.put('/api/restaurant/reservations/:id/approve', requireRestaurantOwner, RestaurantAdminController.approveReservation);
-app.put('/api/restaurant/reservations/:id/decline', requireRestaurantOwner, RestaurantAdminController.declineReservation);
-app.put('/api/restaurant/reservations/:id/status', requireRestaurantOwner, RestaurantAdminController.updateReservationStatus);
-app.post('/api/restaurant/reservations/clear-arrived', requireRestaurantOwner, RestaurantAdminController.clearArrivedToday);
-app.put('/api/restaurant/reservations/:id', requireRestaurantOwner, RestaurantAdminController.modifyReservation);
+app.get('/api/restaurant/dashboard', requireRestaurantStaff, RestaurantAdminController.getDashboard);
+app.put('/api/restaurant/reservations/:id/approve', requireRestaurantStaff, RestaurantAdminController.approveReservation);
+app.put('/api/restaurant/reservations/:id/decline', requireRestaurantStaff, RestaurantAdminController.declineReservation);
+app.put('/api/restaurant/reservations/:id/status', requireRestaurantStaff, RestaurantAdminController.updateReservationStatus);
+app.post('/api/restaurant/reservations/clear-arrived', requireRestaurantStaff, RestaurantAdminController.clearArrivedToday);
+app.post('/api/restaurant/walk-in', requireRestaurantStaff, RestaurantAdminController.walkIn);
+app.put('/api/restaurant/reservations/:id', requireRestaurantStaff, RestaurantAdminController.modifyReservation);
 
-// Owner-only review moderation
-app.get('/api/restaurant/reviews', requireRestaurantOwner, ReviewController.ownerList);
+// Staff management (Accounts Info tab in settings) — owner-only.
+app.get('/api/restaurant/staff', requireRestaurantOwner, RestaurantAdminController.listStaff);
+app.post('/api/restaurant/staff', requireRestaurantOwner, RestaurantAdminController.createStaff);
+app.put('/api/restaurant/staff/:id', requireRestaurantOwner, RestaurantAdminController.updateStaff);
+app.delete('/api/restaurant/staff/:id', requireRestaurantOwner, RestaurantAdminController.deleteStaff);
+
+// Hostesses can read reviews on the dashboard but cannot moderate (reply, edit
+// reply, delete reply, hide) — those are all owner-only actions.
+app.get('/api/restaurant/reviews', requireRestaurantStaff, ReviewController.ownerList);
 app.put('/api/restaurant/reviews/:reviewId/reply', requireRestaurantOwner, ReviewController.setReply);
 app.delete('/api/restaurant/reviews/:reviewId/reply', requireRestaurantOwner, ReviewController.clearReply);
 app.put('/api/restaurant/reviews/:reviewId/hidden', requireRestaurantOwner, ReviewController.setHidden);

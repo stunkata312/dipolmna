@@ -141,7 +141,7 @@ function groupByMonth(reservations) {
 }
 
 function ProfilePage() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -151,6 +151,7 @@ function ProfilePage() {
   const [editRestaurantId, setEditRestaurantId] = useState(null);
   const [actionError, setActionError] = useState(null);
   const [confirmCancelId, setConfirmCancelId] = useState(null);
+  const [editingProfile, setEditingProfile] = useState(false);
 
   useEffect(() => {
     if (!user) navigate('/');
@@ -411,11 +412,33 @@ function ProfilePage() {
               <h1>{user.name}</h1>
               <p>{user.email}</p>
               {user.phone && <p>{user.phone}</p>}
+              {/* Sign Out lives under the name in both states. The card is a
+                  flex row with space-between, so a sibling button would float
+                  to the right instead of stacking above Edit My Profile. */}
+              <button
+                className="logout-btn profile-header-logout"
+                onClick={() => { logout(); navigate('/'); }}
+              >
+                Sign Out
+              </button>
             </div>
           </div>
-          <button className="logout-btn" onClick={() => { logout(); navigate('/'); }}>
-            Sign Out
-          </button>
+          {user.role === 'customer' && !editingProfile && (
+            <button
+              type="button"
+              className="edit-profile-btn"
+              onClick={() => setEditingProfile(true)}
+            >
+              Edit My Profile
+            </button>
+          )}
+          {editingProfile && user.role === 'customer' && (
+            <EditProfileForm
+              user={user}
+              onCancel={() => setEditingProfile(false)}
+              onSaved={async () => { await refreshUser(); setEditingProfile(false); }}
+            />
+          )}
         </div>
 
         {/* Summary */}
@@ -498,6 +521,123 @@ function ProfilePage() {
         )}
       </div>
     </div>
+  );
+}
+
+const PROFILE_NAME_OK = /^[A-Za-z\s]*$/;
+const PROFILE_PHONE_OK = /^\d*$/;
+
+function EditProfileForm({ user, onCancel, onSaved }) {
+  const [draft, setDraft] = useState({
+    name: user.name || '',
+    email: user.email || '',
+    phone: user.phone || '',
+    current_password: '',
+    new_password: '',
+  });
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [error, setError] = useState(null);
+
+  const save = useMutation({
+    mutationFn: (body) => apiFetch('/auth/me', { method: 'PUT', body }),
+    onSuccess: () => onSaved?.(),
+    onError: (err) => setError(err.message),
+  });
+
+  const onField = (field, raw) => {
+    let value = raw;
+    if (field === 'name') {
+      if (!PROFILE_NAME_OK.test(value)) {
+        setFieldErrors(p => ({ ...p, name: 'Wrong format — letters only' }));
+        value = value.replace(/[^A-Za-z\s]/g, '');
+      } else {
+        setFieldErrors(p => { const n = { ...p }; delete n.name; return n; });
+      }
+    } else if (field === 'phone') {
+      if (!PROFILE_PHONE_OK.test(value)) {
+        setFieldErrors(p => ({ ...p, phone: 'Wrong format — digits only' }));
+        value = value.replace(/\D/g, '');
+      } else {
+        setFieldErrors(p => { const n = { ...p }; delete n.phone; return n; });
+      }
+    }
+    setDraft(d => ({ ...d, [field]: value }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setError(null);
+    if (!draft.name.trim()) { setError('Name is required'); return; }
+    if (!draft.email.trim()) { setError('Email is required'); return; }
+    if (draft.new_password && !draft.current_password && user.password_hash !== null) {
+      // We don't know password_hash on the client. Server still enforces it,
+      // so just let the request proceed and surface the server error if any.
+    }
+    save.mutate({
+      name: draft.name.trim(),
+      email: draft.email.trim(),
+      phone: draft.phone.trim(),
+      ...(draft.new_password ? {
+        new_password: draft.new_password,
+        current_password: draft.current_password,
+      } : {}),
+    });
+  };
+
+  return (
+    <form className="edit-profile-form" onSubmit={handleSubmit}>
+      <div className="form-group">
+        <label>Full Name</label>
+        <input type="text" value={draft.name} onChange={(e) => onField('name', e.target.value)} />
+        {fieldErrors.name && <div className="field-error-popup">{fieldErrors.name}</div>}
+      </div>
+      <div className="form-group">
+        <label>Email</label>
+        <input type="email" value={draft.email} onChange={(e) => onField('email', e.target.value)} />
+      </div>
+      <div className="form-group">
+        <label>Phone <span className="label-optional">*optional</span></label>
+        <input
+          type="tel"
+          inputMode="numeric"
+          value={draft.phone}
+          onChange={(e) => onField('phone', e.target.value)}
+          placeholder="359888000000"
+        />
+        {fieldErrors.phone && <div className="field-error-popup">{fieldErrors.phone}</div>}
+      </div>
+      <p className="edit-profile-pw-hint">
+        To change your password, fill in both fields below. Otherwise leave them empty.
+      </p>
+      <div className="form-group">
+        <label>Current Password</label>
+        <input
+          type="password"
+          value={draft.current_password}
+          onChange={(e) => setDraft(d => ({ ...d, current_password: e.target.value }))}
+          autoComplete="current-password"
+        />
+      </div>
+      <div className="form-group">
+        <label>New Password</label>
+        <input
+          type="password"
+          value={draft.new_password}
+          onChange={(e) => setDraft(d => ({ ...d, new_password: e.target.value }))}
+          autoComplete="new-password"
+          placeholder="Min 6 characters"
+        />
+      </div>
+      {error && <div className="error-message">{error}</div>}
+      <div className="edit-profile-actions">
+        <button type="submit" className="submit-btn" disabled={save.isPending}>
+          {save.isPending ? 'Saving...' : 'Save changes'}
+        </button>
+        <button type="button" className="edit-profile-btn" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
 

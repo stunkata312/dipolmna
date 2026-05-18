@@ -80,14 +80,20 @@ const stmts = {
     SET status = 'completed'
     WHERE status = 'arrived' AND date < ?
   `),
-  // Flip rows whose start time + 15 min has passed → 'no_show'.
+  // Flip rows past the restaurant's own buffer → 'no_show'.
   // Covers both 'confirmed' (customer was approved but didn't arrive) and
   // 'pending' (owner never approved AND time passed — the request is dead).
   // Stamps cancelled_at so they sort like cancellations.
-  markPastNoShows: db.prepare(`
+  markPastNoShowsForRestaurant: db.prepare(`
     UPDATE reservations
     SET status = 'no_show', cancelled_at = datetime('now')
-    WHERE status IN ('confirmed', 'pending') AND (date || ' ' || time) < ?
+    WHERE restaurant_id = ?
+      AND status IN ('confirmed', 'pending')
+      AND (date || ' ' || time) < ?
+  `),
+  listRestaurantBuffers: db.prepare(`
+    SELECT id, COALESCE(no_show_buffer_minutes, 15) AS buffer_minutes
+    FROM restaurants
   `),
   getStats: db.prepare(`
     SELECT
@@ -225,7 +231,7 @@ const ReservationModel = {
 
   // Auto-flip stale rows. Cheap and idempotent — safe to call on every dashboard fetch.
   // - 'arrived' from past dates → 'completed' (owner forgot to click DONE before midnight)
-  // - 'confirmed' past (start time + 15 min) → 'no_show'
+  // - 'confirmed'/'pending' past (start time + restaurant's own buffer) → 'no_show'
   runMaintenance() {
     const now = new Date();
     const yyyy = now.getFullYear();
@@ -233,16 +239,22 @@ const ReservationModel = {
     const dd = String(now.getDate()).padStart(2, '0');
     const today = `${yyyy}-${mm}-${dd}`;
 
-    const cutoff = new Date(now.getTime() - 15 * 60 * 1000);
-    const cyyyy = cutoff.getFullYear();
-    const cmm = String(cutoff.getMonth() + 1).padStart(2, '0');
-    const cdd = String(cutoff.getDate()).padStart(2, '0');
-    const chh = String(cutoff.getHours()).padStart(2, '0');
-    const cmi = String(cutoff.getMinutes()).padStart(2, '0');
-    const noShowCutoff = `${cyyyy}-${cmm}-${cdd} ${chh}:${cmi}`;
-
     const completed = stmts.completePastArrivals.run(today).changes;
-    const noShows = stmts.markPastNoShows.run(noShowCutoff).changes;
+
+    // Walk each restaurant with its own buffer so a venue that wants a 5-min
+    // or 30-min grace window gets that, instead of a single global cutoff.
+    let noShows = 0;
+    for (const r of stmts.listRestaurantBuffers.all()) {
+      const bufferMin = Number.isFinite(r.buffer_minutes) ? r.buffer_minutes : 15;
+      const cutoff = new Date(now.getTime() - bufferMin * 60 * 1000);
+      const cyyyy = cutoff.getFullYear();
+      const cmm = String(cutoff.getMonth() + 1).padStart(2, '0');
+      const cdd = String(cutoff.getDate()).padStart(2, '0');
+      const chh = String(cutoff.getHours()).padStart(2, '0');
+      const cmi = String(cutoff.getMinutes()).padStart(2, '0');
+      const noShowCutoff = `${cyyyy}-${cmm}-${cdd} ${chh}:${cmi}`;
+      noShows += stmts.markPastNoShowsForRestaurant.run(r.id, noShowCutoff).changes;
+    }
     return { completed, noShows };
   }
 };

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
@@ -134,7 +135,10 @@ function GalleryLightbox({ images, startIndex = 0, onClose }) {
 
   if (!images.length) return null;
 
-  return (
+  // Render through a portal to document.body so the fixed-position overlay
+  // can't be trapped by ancestors that use transform / filter / backdrop-filter
+  // (which create a new containing block for fixed children).
+  return createPortal(
     <div className="lightbox-overlay" onClick={onClose}>
       <button type="button" className="lightbox-close" onClick={onClose} aria-label="Close">×</button>
 
@@ -178,7 +182,8 @@ function GalleryLightbox({ images, startIndex = 0, onClose }) {
       </div>
 
       <div className="lightbox-counter">{idx + 1} / {images.length}</div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -202,7 +207,7 @@ function ScheduleCard({ restaurant }) {
           return (
             <div key={i} className={`schedule-row${closed ? ' schedule-row-closed' : ''}`}>
               <span className="schedule-day">{label}</span>
-              <span className="schedule-hours">{closed ? 'Closed' : `${start} – ${end}`}</span>
+              <span className="schedule-hours">{closed ? 'Closed' : `${start} - ${end}`}</span>
             </div>
           );
         })}
@@ -235,7 +240,7 @@ function InfoChips({ restaurant }) {
           <circle cx="12" cy="12" r="10" />
           <polyline points="12 6 12 12 16 14" />
         </svg>
-        {start} – {end}
+        {start} - {end}
       </span>
       <span className="info-chip">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -282,6 +287,103 @@ function LocationMap({ restaurant }) {
           <Marker position={pos} />
         </MapContainer>
       </div>
+    </div>
+  );
+}
+
+const CURRENCY_SYMBOL = { EUR: '€', USD: '$', GBP: '£' };
+
+function formatPrice(price, code) {
+  if (price === null || price === undefined || price === '') return '';
+  const num = Number(price);
+  if (!Number.isFinite(num)) return String(price);
+  const symbol = CURRENCY_SYMBOL[code] || code || '';
+  return `${symbol}${num.toFixed(2)}`;
+}
+
+// Accept both the new photos: string[] shape and the legacy photo: string field.
+function readItemPhotos(it) {
+  if (Array.isArray(it?.photos)) return it.photos.filter(Boolean);
+  if (it?.photo) return [it.photo];
+  return [];
+}
+
+function MenuSection({ restaurant }) {
+  const [open, setOpen] = useState(false);
+  const [zoom, setZoom] = useState(null); // { images: string[], startIndex: number }
+  const menu = useMemo(() => {
+    try {
+      const parsed = JSON.parse(restaurant?.menu_json || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
+  }, [restaurant?.menu_json]);
+
+  if (menu.length === 0) return null;
+  const totalItems = menu.reduce((s, sec) => s + (sec.items?.length || 0), 0);
+
+  return (
+    <div className="detail-card menu-card">
+      <button
+        type="button"
+        className="menu-card-toggle"
+        onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
+      >
+        <span className="menu-card-title">Menu</span>
+        <span className="menu-card-meta">
+          {menu.length} {menu.length === 1 ? 'section' : 'sections'} · {totalItems} {totalItems === 1 ? 'item' : 'items'}
+        </span>
+        <span className={`menu-card-chevron ${open ? 'open' : ''}`} aria-hidden>▾</span>
+      </button>
+      {open && (
+        <div className="menu-card-body">
+          {menu.map((section, si) => (
+            <div key={si} className="menu-section">
+              <h4 className="menu-section-title">{section.name}</h4>
+              <ul className="menu-items">
+                {(section.items || []).map((it, ii) => {
+                  const photos = readItemPhotos(it);
+                  return (
+                  <li key={ii} className="menu-item">
+                    {photos.length > 0 && (
+                      <button
+                        type="button"
+                        className="menu-item-photo-btn"
+                        onClick={() => setZoom({ images: photos, startIndex: 0 })}
+                        aria-label={`View photos of ${it.name}`}
+                      >
+                        <img src={photos[0]} alt="" />
+                        {photos.length > 1 && (
+                          <span className="menu-item-photo-count">+{photos.length - 1}</span>
+                        )}
+                      </button>
+                    )}
+                    <div className="menu-item-main">
+                      <span className="menu-item-name-text">{it.name}</span>
+                      {it.description && (
+                        <span className="menu-item-desc-text">{it.description}</span>
+                      )}
+                    </div>
+                    {it.price != null && it.price !== '' && (
+                      <span className="menu-item-price-text">
+                        {formatPrice(it.price, restaurant?.currency)}
+                      </span>
+                    )}
+                  </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+      {zoom && (
+        <GalleryLightbox
+          images={zoom.images}
+          startIndex={zoom.startIndex}
+          onClose={() => setZoom(null)}
+        />
+      )}
     </div>
   );
 }
@@ -353,6 +455,8 @@ function RestaurantPage() {
               <p className="description">{restaurant.description}</p>
             )}
           </div>
+
+          <MenuSection restaurant={restaurant} />
 
           <div className="detail-side-by-side">
             <ScheduleCard restaurant={restaurant} />

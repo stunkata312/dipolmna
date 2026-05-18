@@ -105,6 +105,20 @@ if (!columns.includes('avatar_url')) {
 if (!columns.includes('role')) {
   db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'customer'");
 }
+// Restaurant staff (extra owners + hostesses) point at the restaurant they work for.
+// Primary owners are still discovered via restaurants.owner_id, but we also set this
+// column on them at registration so login/me can hand the id straight to the JWT.
+if (!columns.includes('restaurant_id')) {
+  db.exec('ALTER TABLE users ADD COLUMN restaurant_id INTEGER');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_users_restaurant_id ON users(restaurant_id)');
+}
+
+// Normalize all stored emails to lowercase + add a case-insensitive uniqueness
+// index so future writes can't introduce duplicates that differ only by case.
+// Runs once per process startup; idempotent because LOWER() of a lowercase string
+// is a no-op and the index is IF NOT EXISTS.
+db.exec("UPDATE users SET email = LOWER(email) WHERE email <> LOWER(email)");
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_nocase ON users(email COLLATE NOCASE)");
 
 // Migrate restaurants: add new columns if missing
 const restCols = db.pragma('table_info(restaurants)').map(c => c.name);
@@ -149,6 +163,27 @@ if (!restCols.includes('cover_images')) {
 }
 if (!restCols.includes('gallery_images')) {
   db.exec("ALTER TABLE restaurants ADD COLUMN gallery_images TEXT DEFAULT '[]'");
+}
+// Structured per-weekday opening hours so the booking form can clip the
+// time-slot picker per day (Mon 11–18, Sat 12–23, etc.). Keys are day
+// indices 0..6 where 0 = Monday. opening_hours TEXT remains the
+// human-readable display string shown on the public page.
+if (!restCols.includes('open_hours_json')) {
+  db.exec("ALTER TABLE restaurants ADD COLUMN open_hours_json TEXT DEFAULT '{}'");
+}
+// Structured menu (sections + items) shown as a collapsible block on the
+// restaurant page. Plus a currency code the owner picks at registration so
+// prices render with the right symbol.
+if (!restCols.includes('menu_json')) {
+  db.exec("ALTER TABLE restaurants ADD COLUMN menu_json TEXT DEFAULT '[]'");
+}
+if (!restCols.includes('currency')) {
+  db.exec("ALTER TABLE restaurants ADD COLUMN currency TEXT DEFAULT 'EUR'");
+}
+// Per-restaurant grace period after a reservation's start time before the
+// system auto-flips it to 'no_show'. Default 15 minutes — owners can override.
+if (!restCols.includes('no_show_buffer_minutes')) {
+  db.exec("ALTER TABLE restaurants ADD COLUMN no_show_buffer_minutes INTEGER DEFAULT 15");
 }
 // Per-table seat config: JSON array of { id, seats }. Backfilled from num_tables/seats_per_table.
 if (!restCols.includes('tables')) {
@@ -203,6 +238,28 @@ if (!reviewCols.includes('owner_reply_at')) {
 if (!reviewCols.includes('hidden')) {
   db.exec('ALTER TABLE reviews ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0');
 }
+// Flips to 1 whenever the author edits/re-submits while a moderation hold is
+// active. The owner uses this to know "this hidden review changed since I
+// hid it" and can decide whether to unhide. Clears when the owner unhides.
+if (!reviewCols.includes('edited_after_hide')) {
+  db.exec('ALTER TABLE reviews ADD COLUMN edited_after_hide INTEGER NOT NULL DEFAULT 0');
+}
+
+// One row per (restaurant, user) any time the owner has hidden a review.
+// Survives the user deleting their own row in `reviews`, so a re-submission
+// from that user lands hidden by default. Owner unhiding the review clears it.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS review_moderation_holds (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    restaurant_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(restaurant_id, user_id),
+    FOREIGN KEY (restaurant_id) REFERENCES restaurants(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_review_holds_pair ON review_moderation_holds(restaurant_id, user_id);
+`);
 
 // Performance indexes
 db.exec(`

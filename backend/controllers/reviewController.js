@@ -1,16 +1,24 @@
 const ReviewModel = require('../models/reviewModel');
 const RestaurantModel = require('../models/restaurantModel');
+const { getStaffRestaurant } = require('./staffHelper');
 
 const ReviewController = {
-  // GET /api/restaurants/:id/reviews — public; hides reviews the owner has hidden,
-  // but stats stay computed across all reviews so the star average is unaffected.
+  // GET /api/restaurants/:id/reviews — public; hidden rows still appear so
+  // the author can see their own moderated review, but their comment + the
+  // owner's reply are redacted for everyone else (rating still shown).
   list(req, res) {
     try {
       const id = parseInt(req.params.id, 10);
       if (isNaN(id)) return res.status(400).json({ error: 'Invalid restaurant ID' });
       if (!RestaurantModel.getById(id)) return res.status(404).json({ error: 'Restaurant not found' });
 
-      const reviews = ReviewModel.listVisibleByRestaurant(id);
+      const viewerId = req.user?.id || null;
+      const reviews = ReviewModel.listByRestaurant(id).map(r => {
+        if (!r.hidden) return r;
+        if (viewerId && viewerId === r.user_id) return r; // author sees full row
+        // Public viewer: keep stars + reviewer + date, strip the text.
+        return { ...r, comment: null, owner_reply: null, owner_reply_at: null };
+      });
       const stats = ReviewModel.getStats(id);
       res.json({ stats, reviews });
     } catch (error) {
@@ -73,7 +81,7 @@ const ReviewController = {
   // GET /api/restaurant/reviews — owner view, includes hidden reviews
   ownerList(req, res) {
     try {
-      const restaurant = RestaurantModel.getByOwnerId(req.user.id);
+      const restaurant = getStaffRestaurant(req.user);
       if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
       const reviews = ReviewModel.listByRestaurant(restaurant.id);
       const stats = ReviewModel.getStats(restaurant.id);
@@ -89,7 +97,7 @@ const ReviewController = {
     try {
       const reviewId = parseInt(req.params.reviewId, 10);
       if (isNaN(reviewId)) return res.status(400).json({ error: 'Invalid review ID' });
-      const restaurant = RestaurantModel.getByOwnerId(req.user.id);
+      const restaurant = getStaffRestaurant(req.user);
       if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
       const review = ReviewModel.getById(reviewId);
       if (!review || review.restaurant_id !== restaurant.id) {
@@ -111,7 +119,7 @@ const ReviewController = {
     try {
       const reviewId = parseInt(req.params.reviewId, 10);
       if (isNaN(reviewId)) return res.status(400).json({ error: 'Invalid review ID' });
-      const restaurant = RestaurantModel.getByOwnerId(req.user.id);
+      const restaurant = getStaffRestaurant(req.user);
       if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
       const review = ReviewModel.getById(reviewId);
       if (!review || review.restaurant_id !== restaurant.id) {
@@ -130,7 +138,7 @@ const ReviewController = {
     try {
       const reviewId = parseInt(req.params.reviewId, 10);
       if (isNaN(reviewId)) return res.status(400).json({ error: 'Invalid review ID' });
-      const restaurant = RestaurantModel.getByOwnerId(req.user.id);
+      const restaurant = getStaffRestaurant(req.user);
       if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
       const review = ReviewModel.getById(reviewId);
       if (!review || review.restaurant_id !== restaurant.id) {

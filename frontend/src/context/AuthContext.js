@@ -28,10 +28,10 @@ export function AuthProvider({ children }) {
       });
   }, [token]);
 
-  const login = useCallback(async (email, password) => {
+  const login = useCallback(async (identifier, password) => {
     const data = await apiFetch('/auth/login', {
       method: 'POST',
-      body: { email, password },
+      body: { identifier, password },
     });
     localStorage.setItem('token', data.token);
     setToken(data.token);
@@ -78,8 +78,16 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
+  // Pulls a fresh /auth/me so the header + UserMenu show the new name/email
+  // immediately after a profile edit, without forcing a re-login.
+  const refreshUser = useCallback(async () => {
+    const data = await apiFetch('/auth/me');
+    setUser(data.user);
+    return data.user;
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, googleLogin, restaurantRegister, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, googleLogin, restaurantRegister, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

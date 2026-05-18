@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 function LoginModal({ onClose }) {
   const { login, register, googleLogin } = useAuth();
   const [tab, setTab] = useState('login'); // 'login' or 'register'
-  const [formData, setFormData] = useState({ name: '', email: '', password: '', phone: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', phone: '', identifier: '' });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -22,7 +22,7 @@ function LoginModal({ onClose }) {
 
     try {
       if (tab === 'login') {
-        await login(formData.email, formData.password);
+        await login(formData.identifier, formData.password);
       } else {
         if (!formData.name.trim()) {
           setError('Name is required');
@@ -102,18 +102,34 @@ function LoginModal({ onClose }) {
             </>
           )}
 
-          <div className="form-group">
-            <label htmlFor="auth-email">Email</label>
-            <input
-              type="email"
-              id="auth-email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="your@email.com"
-              required
-            />
-          </div>
+          {tab === 'login' ? (
+            <div className="form-group">
+              <label htmlFor="auth-identifier">Email or phone</label>
+              <input
+                type="text"
+                id="auth-identifier"
+                name="identifier"
+                value={formData.identifier}
+                onChange={handleChange}
+                placeholder="you@email.com or 359888000000"
+                autoComplete="username"
+                required
+              />
+            </div>
+          ) : (
+            <div className="form-group">
+              <label htmlFor="auth-email">Email</label>
+              <input
+                type="email"
+                id="auth-email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="your@email.com"
+                required
+              />
+            </div>
+          )}
 
           <div className="form-group">
             <label htmlFor="auth-password">Password</label>

@@ -4,6 +4,7 @@ const ReservationModel = require('../models/reservationModel');
 const UserModel = require('../models/userModel');
 const { generateToken } = require('../middleware/auth');
 const { geocodeAddress } = require('../middleware/geocode');
+const { getStaffRestaurant } = require('./staffHelper');
 
 // Accept either a JSON-string array or an actual array; return a clean array of non-empty strings
 function parseImageList(raw) {
@@ -45,8 +46,10 @@ const RestaurantAdminController = {
   async register(req, res) {
     try {
       const { name, email, password, phone: ownerPhone,
+              additional_owners, hostesses,
               restaurant_name, address, description,
-              restaurant_phone, opening_hours,
+              restaurant_phone, opening_hours, open_hours_json,
+              menu_json, currency, no_show_buffer_minutes,
               num_tables, seats_per_table, max_guests, image_url,
               reservation_start_time, reservation_end_time, closed_days, special_closures,
               cover_images, gallery_images, tables,
@@ -57,6 +60,36 @@ const RestaurantAdminController = {
       }
       if (password.length < 6) {
         return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      }
+
+      // Validate any extra staff accounts up-front so we don't half-create the world.
+      const extraOwners = Array.isArray(additional_owners) ? additional_owners : [];
+      const extraHostesses = Array.isArray(hostesses) ? hostesses : [];
+      const seenEmails = new Set([email.toLowerCase()]);
+      const staffAccounts = [];
+      for (const [role, list] of [['restaurant', extraOwners], ['hostess', extraHostesses]]) {
+        for (const acc of list) {
+          if (!acc || typeof acc !== 'object') continue;
+          const aName = (acc.name || '').trim();
+          const aEmail = (acc.email || '').trim().toLowerCase();
+          const aPassword = acc.password || '';
+          const aPhone = (acc.phone || '').trim() || null;
+          if (!aName || !aEmail || !aPassword) {
+            return res.status(400).json({ error: `${role === 'restaurant' ? 'Owner' : 'Hostess'} accounts need name, email, and password` });
+          }
+          if (aPassword.length < 6) {
+            return res.status(400).json({ error: 'Each password must be at least 6 characters' });
+          }
+          if (seenEmails.has(aEmail)) {
+            return res.status(409).json({ error: `Duplicate email in form: ${aEmail}` });
+          }
+          seenEmails.add(aEmail);
+          const taken = UserModel.getByEmail(aEmail);
+          if (taken && taken.password_hash) {
+            return res.status(409).json({ error: `Email already in use: ${aEmail}` });
+          }
+          staffAccounts.push({ role, name: aName, email: aEmail, password: aPassword, phone: aPhone, existing: taken });
+        }
       }
 
       const existing = UserModel.getByEmail(email);
@@ -125,14 +158,44 @@ const RestaurantAdminController = {
         cover_images: JSON.stringify(coverArr),
         gallery_images: JSON.stringify(galleryArr),
         tables: JSON.stringify(tablesArr),
+        open_hours_json: typeof open_hours_json === 'string' ? open_hours_json : JSON.stringify(open_hours_json || {}),
+        menu_json: typeof menu_json === 'string' ? menu_json : JSON.stringify(menu_json || []),
+        currency: currency || 'EUR',
+        no_show_buffer_minutes: Number.isFinite(parseInt(no_show_buffer_minutes, 10))
+          ? Math.max(0, parseInt(no_show_buffer_minutes, 10))
+          : 15,
         latitude,
         longitude
       });
 
+      // Link primary owner to the restaurant so the JWT can carry restaurant_id
+      // identically for every staff account.
+      UserModel.setRestaurantId(user.id, restaurant.id);
+
+      // Create the additional owner + hostess accounts and link them to the restaurant.
+      for (const acc of staffAccounts) {
+        const hash = bcrypt.hashSync(acc.password, 10);
+        let staffUser;
+        if (acc.existing) {
+          UserModel.updatePasswordHash(acc.existing.id, hash);
+          UserModel.updateProfile(acc.existing.id, {
+            name: acc.name,
+            phone: acc.phone || acc.existing.phone,
+            avatar_url: acc.existing.avatar_url,
+          });
+          staffUser = acc.existing;
+        } else {
+          staffUser = UserModel.create({ name: acc.name, email: acc.email, phone: acc.phone, password_hash: hash });
+        }
+        UserModel.setRole(staffUser.id, acc.role);
+        UserModel.setRestaurantId(staffUser.id, restaurant.id);
+      }
+
+      user = UserModel.getById(user.id);
       const token = generateToken(user);
       res.status(201).json({
         token,
-        user: { id: user.id, name: user.name, email: user.email, phone: user.phone, avatar_url: user.avatar_url, role: user.role },
+        user: { id: user.id, name: user.name, email: user.email, phone: user.phone, avatar_url: user.avatar_url, role: user.role, restaurant_id: user.restaurant_id ?? null },
         restaurant
       });
     } catch (error) {
@@ -141,10 +204,159 @@ const RestaurantAdminController = {
     }
   },
 
+  // GET /api/restaurant/staff  — list staff accounts for the restaurant
+  listStaff(req, res) {
+    try {
+      const restaurant = getStaffRestaurant(req.user);
+      if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
+      const staff = UserModel.listByRestaurant(restaurant.id).map(u => ({
+        ...u,
+        is_primary_owner: u.id === restaurant.owner_id,
+      }));
+      res.json({ staff });
+    } catch (error) {
+      console.error('List staff error:', error);
+      res.status(500).json({ error: 'Failed to load staff' });
+    }
+  },
+
+  // POST /api/restaurant/staff  — create a new owner or hostess account
+  createStaff(req, res) {
+    try {
+      const restaurant = getStaffRestaurant(req.user);
+      if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
+
+      const name = (req.body.name || '').trim();
+      const email = (req.body.email || '').trim().toLowerCase();
+      const password = req.body.password || '';
+      const phone = (req.body.phone || '').trim() || null;
+      const role = req.body.role;
+
+      if (role !== 'restaurant' && role !== 'hostess') {
+        return res.status(400).json({ error: 'Role must be restaurant or hostess' });
+      }
+      if (!name) return res.status(400).json({ error: 'Name is required' });
+      if (!/^[A-Za-z\s]+$/.test(name)) return res.status(400).json({ error: 'Name must contain letters only' });
+      if (!email) return res.status(400).json({ error: 'Email is required' });
+      if (!password || password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      if (phone && !/^\d+$/.test(phone)) return res.status(400).json({ error: 'Phone must contain digits only' });
+
+      const existing = UserModel.getByEmail(email);
+      if (existing && existing.password_hash) {
+        return res.status(409).json({ error: 'Email already in use' });
+      }
+
+      const password_hash = bcrypt.hashSync(password, 10);
+      let staffUser;
+      if (existing) {
+        UserModel.updatePasswordHash(existing.id, password_hash);
+        UserModel.updateProfile(existing.id, { name, phone, avatar_url: existing.avatar_url });
+        staffUser = existing;
+      } else {
+        staffUser = UserModel.create({ name, email, phone, password_hash });
+      }
+      UserModel.setRole(staffUser.id, role);
+      UserModel.setRestaurantId(staffUser.id, restaurant.id);
+
+      const created = UserModel.getById(staffUser.id);
+      res.status(201).json({
+        account: {
+          id: created.id,
+          name: created.name,
+          email: created.email,
+          phone: created.phone,
+          role: created.role,
+          restaurant_id: created.restaurant_id,
+          is_primary_owner: false,
+        },
+      });
+    } catch (error) {
+      console.error('Create staff error:', error);
+      res.status(500).json({ error: 'Failed to create account' });
+    }
+  },
+
+  // DELETE /api/restaurant/staff/:id  — primary owner only; cannot remove primary owner
+  deleteStaff(req, res) {
+    try {
+      const userId = parseInt(req.params.id, 10);
+      if (!Number.isFinite(userId)) return res.status(400).json({ error: 'Invalid account id' });
+
+      const restaurant = getStaffRestaurant(req.user);
+      if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
+      if (req.user.id !== restaurant.owner_id) {
+        return res.status(403).json({ error: 'Only the primary owner can remove accounts' });
+      }
+
+      const target = UserModel.getById(userId);
+      if (!target || target.restaurant_id !== restaurant.id) {
+        return res.status(404).json({ error: 'Account not found' });
+      }
+      if (target.id === restaurant.owner_id) {
+        return res.status(400).json({ error: 'The primary owner cannot be removed' });
+      }
+
+      UserModel.deleteAccount(target.id);
+      res.json({ message: 'Account removed', id: target.id });
+    } catch (error) {
+      console.error('Delete staff error:', error);
+      res.status(500).json({ error: 'Failed to remove account' });
+    }
+  },
+
+  // PUT /api/restaurant/staff/:id  — update name/email/phone for a staff account
+  updateStaff(req, res) {
+    try {
+      const userId = parseInt(req.params.id, 10);
+      if (!Number.isFinite(userId)) return res.status(400).json({ error: 'Invalid account id' });
+
+      const restaurant = getStaffRestaurant(req.user);
+      if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
+
+      const target = UserModel.getById(userId);
+      if (!target || target.restaurant_id !== restaurant.id) {
+        return res.status(404).json({ error: 'Account not found' });
+      }
+
+      const name = (req.body.name || '').trim();
+      const email = (req.body.email || '').trim().toLowerCase();
+      const phone = (req.body.phone || '').trim() || null;
+
+      if (!name) return res.status(400).json({ error: 'Name is required' });
+      if (!/^[A-Za-z\s]+$/.test(name)) return res.status(400).json({ error: 'Name must contain letters only' });
+      if (!email) return res.status(400).json({ error: 'Email is required' });
+      if (phone && !/^\d+$/.test(phone)) return res.status(400).json({ error: 'Phone must contain digits only' });
+
+      if (email !== target.email.toLowerCase()) {
+        const taken = UserModel.getByEmail(email);
+        if (taken && taken.id !== target.id) {
+          return res.status(409).json({ error: 'Email already in use' });
+        }
+      }
+
+      UserModel.updateAccount(target.id, { name, email, phone });
+      const updated = UserModel.getById(target.id);
+      res.json({
+        account: {
+          id: updated.id,
+          name: updated.name,
+          email: updated.email,
+          phone: updated.phone,
+          role: updated.role,
+          restaurant_id: updated.restaurant_id,
+          is_primary_owner: updated.id === restaurant.owner_id,
+        },
+      });
+    } catch (error) {
+      console.error('Update staff error:', error);
+      res.status(500).json({ error: 'Failed to update account' });
+    }
+  },
+
   // GET /api/restaurant/me  — get own restaurant info
   getMyRestaurant(req, res) {
     try {
-      const restaurant = RestaurantModel.getByOwnerId(req.user.id);
+      const restaurant = getStaffRestaurant(req.user);
       if (!restaurant) {
         return res.status(404).json({ error: 'Restaurant not found' });
       }
@@ -158,11 +370,11 @@ const RestaurantAdminController = {
   // PUT /api/restaurant/me  — update own restaurant
   async updateMyRestaurant(req, res) {
     try {
-      const restaurant = RestaurantModel.getByOwnerId(req.user.id);
+      const restaurant = getStaffRestaurant(req.user);
       if (!restaurant) {
         return res.status(404).json({ error: 'Restaurant not found' });
       }
-      const { name, address, description, phone, opening_hours, num_tables, seats_per_table, max_guests, image_url,
+      const { name, address, description, phone, opening_hours, open_hours_json, menu_json, currency, no_show_buffer_minutes, num_tables, seats_per_table, max_guests, image_url,
               reservation_start_time, reservation_end_time, closed_days, special_closures,
               cover_images, gallery_images, tables,
               latitude: clientLat, longitude: clientLng } = req.body;
@@ -214,6 +426,16 @@ const RestaurantAdminController = {
         cover_images: coverArr ? JSON.stringify(coverArr) : restaurant.cover_images,
         gallery_images: galleryArr ? JSON.stringify(galleryArr) : restaurant.gallery_images,
         tables: tablesArr ? JSON.stringify(tablesArr) : restaurant.tables,
+        open_hours_json: open_hours_json !== undefined
+          ? (typeof open_hours_json === 'string' ? open_hours_json : JSON.stringify(open_hours_json))
+          : restaurant.open_hours_json,
+        menu_json: menu_json !== undefined
+          ? (typeof menu_json === 'string' ? menu_json : JSON.stringify(menu_json))
+          : restaurant.menu_json,
+        currency: currency !== undefined ? currency : restaurant.currency,
+        no_show_buffer_minutes: no_show_buffer_minutes !== undefined && no_show_buffer_minutes !== null && no_show_buffer_minutes !== ''
+          ? Math.max(0, parseInt(no_show_buffer_minutes, 10) || 0)
+          : restaurant.no_show_buffer_minutes,
         latitude, longitude
       });
       res.json(updated);
@@ -226,7 +448,7 @@ const RestaurantAdminController = {
   // GET /api/restaurant/dashboard  — pending + upcoming + stats
   getDashboard(req, res) {
     try {
-      const restaurant = RestaurantModel.getByOwnerId(req.user.id);
+      const restaurant = getStaffRestaurant(req.user);
       if (!restaurant) {
         return res.status(404).json({ error: 'Restaurant not found' });
       }
@@ -266,7 +488,7 @@ const RestaurantAdminController = {
   approveReservation(req, res) {
     try {
       const id = parseInt(req.params.id, 10);
-      const restaurant = RestaurantModel.getByOwnerId(req.user.id);
+      const restaurant = getStaffRestaurant(req.user);
       if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
 
       const reservation = ReservationModel.getById(id);
@@ -288,7 +510,7 @@ const RestaurantAdminController = {
   declineReservation(req, res) {
     try {
       const id = parseInt(req.params.id, 10);
-      const restaurant = RestaurantModel.getByOwnerId(req.user.id);
+      const restaurant = getStaffRestaurant(req.user);
       if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
 
       const reservation = ReservationModel.getById(id);
@@ -316,7 +538,7 @@ const RestaurantAdminController = {
         return res.status(400).json({ error: 'Invalid status' });
       }
 
-      const restaurant = RestaurantModel.getByOwnerId(req.user.id);
+      const restaurant = getStaffRestaurant(req.user);
       if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
 
       const reservation = ReservationModel.getById(id);
@@ -333,10 +555,65 @@ const RestaurantAdminController = {
     }
   },
 
+  // POST /api/restaurant/walk-in — log a guest who arrived without a website
+  // booking. Inserts a reservation pre-marked 'arrived' for today / current
+  // time, attached to the staff member's user_id so it shows up in stats.
+  walkIn(req, res) {
+    try {
+      const restaurant = getStaffRestaurant(req.user);
+      if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
+
+      const num_people = parseInt(req.body.num_people, 10);
+      const assigned_table = parseInt(req.body.assigned_table, 10);
+      const name = ((req.body.name || '').trim()) || 'Walk-in';
+
+      if (!Number.isFinite(num_people) || num_people <= 0) {
+        return res.status(400).json({ error: 'Party size is required' });
+      }
+      if (!Number.isFinite(assigned_table) || assigned_table <= 0) {
+        return res.status(400).json({ error: 'Table is required' });
+      }
+
+      let tables = [];
+      try { tables = JSON.parse(restaurant.tables || '[]'); } catch {}
+      const tableConfig = tables.find(t => t.id === assigned_table);
+      if (!tableConfig) return res.status(400).json({ error: 'Unknown table' });
+      if (tableConfig.seats < num_people) {
+        return res.status(400).json({ error: `Table ${assigned_table} only seats ${tableConfig.seats}` });
+      }
+
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      const time = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+      // Reject if the table already has a guest seated right now.
+      const db = require('../models/database');
+      const conflict = db.prepare(`
+        SELECT id FROM reservations
+        WHERE restaurant_id = ? AND assigned_table = ? AND date = ? AND status = 'arrived'
+      `).get(restaurant.id, assigned_table, today);
+      if (conflict) {
+        return res.status(409).json({ error: 'That table is currently occupied' });
+      }
+
+      const result = db.prepare(`
+        INSERT INTO reservations
+          (user_id, restaurant_id, name, email, phone, date, time, num_people, status, assigned_table)
+        VALUES (?, ?, ?, '', NULL, ?, ?, ?, 'arrived', ?)
+      `).run(req.user.id, restaurant.id, name, today, time, num_people, assigned_table);
+
+      res.status(201).json({ message: 'Walk-in seated', id: result.lastInsertRowid });
+    } catch (error) {
+      console.error('Walk-in error:', error);
+      res.status(500).json({ error: 'Failed to seat walk-in' });
+    }
+  },
+
   // POST /api/restaurant/reservations/clear-arrived — flip today's arrived rows to completed
   clearArrivedToday(req, res) {
     try {
-      const restaurant = RestaurantModel.getByOwnerId(req.user.id);
+      const restaurant = getStaffRestaurant(req.user);
       if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
 
       const cleared = ReservationModel.clearArrivedToday(restaurant.id);
@@ -351,7 +628,7 @@ const RestaurantAdminController = {
   modifyReservation(req, res) {
     try {
       const id = parseInt(req.params.id, 10);
-      const restaurant = RestaurantModel.getByOwnerId(req.user.id);
+      const restaurant = getStaffRestaurant(req.user);
       if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
 
       const reservation = ReservationModel.getById(id);

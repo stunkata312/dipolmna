@@ -53,11 +53,26 @@ function UserMenu({ onLoginClick }) {
             <strong>{user.name}</strong>
             <span>{user.email}</span>
             {user.role === 'restaurant' && (
-              <span className="user-role-badge">Restaurant</span>
+              <span className="user-role-badge">Owner</span>
+            )}
+            {user.role === 'hostess' && (
+              <span className="user-role-badge">Hostess</span>
             )}
           </div>
           <div className="user-dropdown-divider" />
-          {user.role === 'restaurant' ? (
+          {/* Hostesses live in both worlds: they get a customer profile entry
+              AND the dashboard for the restaurant they staff. Owners get only
+              the dashboard, customers get only the profile. */}
+          {user.role !== 'restaurant' && (
+            <button onClick={() => { setOpen(false); navigate('/profile'); }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+              My Profile
+            </button>
+          )}
+          {(user.role === 'restaurant' || user.role === 'hostess') && (
             <button onClick={() => { setOpen(false); navigate('/restaurant/dashboard'); }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="3" width="7" height="7" />
@@ -66,14 +81,6 @@ function UserMenu({ onLoginClick }) {
                 <rect x="3" y="14" width="7" height="7" />
               </svg>
               Dashboard
-            </button>
-          ) : (
-            <button onClick={() => { setOpen(false); navigate('/profile'); }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-              My Profile
             </button>
           )}
           <button onClick={() => { setOpen(false); logout(); navigate('/'); }}>

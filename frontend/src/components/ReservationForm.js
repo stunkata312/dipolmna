@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../api/client';
@@ -20,6 +20,14 @@ function generateTimeSlots(startTime, endTime) {
   return slots;
 }
 
+// JS getDay() is 0=Sun..6=Sat; the registration form uses 0=Mon..6=Sun, so
+// convert before looking the day up in open_hours_json.
+function jsDateToMonIdx(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const js = d.getDay();
+  return js === 0 ? 6 : js - 1;
+}
+
 function ReservationForm({ restaurantId, restaurant }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -27,9 +35,10 @@ function ReservationForm({ restaurantId, restaurant }) {
   // Parse restaurant schedule config
   let closedDays = [];
   let specialClosures = [];
+  let openHours = {};
   try { closedDays = JSON.parse(restaurant?.closed_days || '[]'); } catch {}
   try { specialClosures = JSON.parse(restaurant?.special_closures || '[]'); } catch {}
-  const TIME_SLOTS = generateTimeSlots(restaurant?.reservation_start_time, restaurant?.reservation_end_time);
+  try { openHours = JSON.parse(restaurant?.open_hours_json || '{}'); } catch {}
 
   const [formData, setFormData] = useState({
     name: '',
@@ -45,6 +54,30 @@ function ReservationForm({ restaurantId, restaurant }) {
   const [success, setSuccess] = useState(null);
   const [error, setError] = useState(null);
   const [showNotes, setShowNotes] = useState(false);
+
+  // Reservation Hours are the baseline window for every day. Opening Hours
+  // is a map of per-weekday overrides — if the chosen date's weekday has an
+  // entry, those hours replace the baseline for that day (intersected with
+  // it). Days NOT in the override map keep the baseline. Weekly-closed days
+  // and special closures are filtered separately by the calendar.
+  const rsvFrom = restaurant?.reservation_start_time || '10:00';
+  const rsvUntil = restaurant?.reservation_end_time || '23:00';
+  const TIME_SLOTS = useMemo(() => {
+    if (!formData.date) return generateTimeSlots(rsvFrom, rsvUntil);
+    const idx = jsDateToMonIdx(formData.date);
+    const override = openHours[idx];
+    if (!override) return generateTimeSlots(rsvFrom, rsvUntil);
+    const from = override.from > rsvFrom ? override.from : rsvFrom;
+    const until = override.until < rsvUntil ? override.until : rsvUntil;
+    if (from >= until) return [];
+    return generateTimeSlots(from, until);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    formData.date,
+    restaurant?.open_hours_json,
+    restaurant?.reservation_start_time,
+    restaurant?.reservation_end_time,
+  ]);
 
   // Availability for the chosen date — booked count per slot
   const { data: availability } = useQuery({

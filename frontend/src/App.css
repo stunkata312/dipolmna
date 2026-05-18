@@ -1254,6 +1254,67 @@
   transition: all 0.25s var(--ease-out);
 }
 
+.edit-profile-btn {
+  margin-top: 10px;
+  padding: 10px 22px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-gradient-end));
+  border: none;
+  color: var(--on-accent);
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-weight: 700;
+  font-family: 'Outfit', sans-serif;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: all 0.25s var(--ease-out);
+}
+
+.edit-profile-btn:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 6px 20px var(--accent-glow);
+}
+
+.edit-profile-form {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg);
+}
+
+.edit-profile-pw-hint {
+  margin: 18px 0 8px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+/* Sign Out always lives under the user's name/email/phone inside the
+   profile header (the outer card is a flex row, so positioning it elsewhere
+   pushes it off to the side). */
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.profile-header-logout {
+  margin-top: 12px;
+  align-self: flex-start;
+}
+
+.edit-profile-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.edit-profile-actions .submit-btn,
+.edit-profile-actions .edit-profile-btn {
+  width: auto;
+  margin-top: 0;
+  flex: 0 0 auto;
+}
+
 .logout-btn:hover {
   background: var(--danger-bg);
   box-shadow: 0 0 16px rgba(248, 113, 113, 0.1);
@@ -1857,6 +1918,19 @@
   color: #fff;
 }
 
+/* The Opening Hours grid reuses .closed-day-btn but means "open with
+   override" rather than "closed", so the selected colour is green. */
+.open-days-grid .closed-day-btn:hover {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.open-days-grid .closed-day-btn.closed {
+  background: var(--success);
+  border-color: var(--success);
+  color: #fff;
+}
+
 .closure-add-row {
   display: flex;
   gap: 8px;
@@ -1962,12 +2036,13 @@
   display: flex;
   align-items: center;
   margin-bottom: 28px;
-  gap: 0;
+  gap: 18px;
 }
 
 .register-step {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   flex: 1;
   font-size: 0.78rem;
@@ -2215,6 +2290,50 @@
   border-color: var(--accent-dim);
   color: var(--accent);
   background: var(--accent-dim);
+}
+
+.dashboard-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.dashboard-walkin-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-gradient-end));
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--on-accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: 'Outfit', sans-serif;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: all 0.25s var(--ease-out);
+}
+
+.dashboard-walkin-btn:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 6px 20px var(--accent-glow);
+}
+
+.walk-in-modal h2 {
+  margin: 0 0 6px;
+}
+
+.walk-in-table-grid {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.customer-table-cell.is-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  filter: grayscale(0.6);
 }
 
 /* Stats */
@@ -2575,6 +2694,547 @@
   margin-top: 6px;
   font-size: 0.78rem;
   color: var(--danger);
+}
+
+/* Settings page tab bar — active tab is underlined in the theme's primary
+   accent (gold in dark, blue in light), matching the rest of the UI. */
+.settings-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--glass-border);
+  margin: 12px 0 24px;
+}
+
+.settings-tab {
+  background: none;
+  border: none;
+  padding: 12px 18px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  position: relative;
+  font-family: inherit;
+}
+
+.settings-tab:hover {
+  color: var(--text-secondary);
+}
+
+.settings-tab.active {
+  color: var(--text-primary);
+}
+
+.settings-tab.active::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -1px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-gradient-end));
+  border-radius: 2px;
+}
+
+.accounts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.account-row-badge {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.account-row-badge.owner {
+  background: var(--accent-dim);
+  color: var(--accent-light);
+}
+
+.account-row-badge.hostess {
+  background: var(--teal-dim);
+  color: var(--teal);
+}
+
+.account-row-badge.primary {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+/* Compact red popup that appears under a single form field — matches
+   .error-message styling so the validation feedback feels consistent
+   with the rest of the form errors. */
+.field-error-popup {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  color: var(--danger);
+  border: 1px solid rgba(248, 113, 113, 0.15);
+  font-size: 0.78rem;
+}
+
+.account-block {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 18px;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.account-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 0 12px;
+}
+
+.account-block-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.account-block-remove {
+  background: none;
+  border: 1px solid var(--glass-border);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: color 0.2s var(--ease-out), border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
+}
+
+.account-block-remove:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  box-shadow: 0 0 0 1px var(--danger), 0 0 14px rgba(248, 113, 113, 0.4);
+}
+
+/* Solid red destructive button — sits where the NewAccountForm's Cancel
+   button does, so saved-row actions line up with in-progress ones. */
+.account-block-danger {
+  background: var(--danger);
+  border: 1px solid var(--danger);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.2s var(--ease-out);
+}
+
+.account-block-danger:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.account-block-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.add-account-btn {
+  display: block;
+  width: 260px;
+  max-width: 100%;
+  padding: 10px 18px;
+  margin: 0 auto 12px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-gradient-end));
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--on-accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: 'Outfit', sans-serif;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: all 0.3s var(--ease-out);
+}
+
+.add-account-btn:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 6px 20px var(--accent-glow);
+}
+
+/* When an add-account-btn is followed directly by the Next/Submit button
+   (step 1 of registration), give the Next button room to breathe. */
+.add-account-btn + .submit-btn {
+  margin-top: 18px;
+}
+
+.account-section-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 18px 0 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Per-day opening-hours rows that appear once a day is selected in step 2
+   of the registration form. Each row pins the day label on the left and
+   shows its own From / Until time inputs. */
+.open-hours-rows {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.open-hours-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.open-hours-day {
+  min-width: 96px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* Menu editor (registration step 5) */
+.menu-section-block {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  margin-bottom: 14px;
+  background: var(--glass-bg);
+}
+
+.menu-section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+/* Match the themed look of .form-group input for the bare inputs in the
+   menu editor (they live outside .form-group on purpose so the editor
+   stays compact). */
+.menu-section-input,
+.menu-item-name,
+.menu-item-desc,
+.menu-item-price {
+  padding: 11px 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.92rem;
+  font-family: 'Outfit', sans-serif;
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  transition: all 0.25s var(--ease-out);
+  outline: none;
+}
+
+.menu-section-input:focus,
+.menu-item-name:focus,
+.menu-item-desc:focus,
+.menu-item-price:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.menu-section-input::placeholder,
+.menu-item-name::placeholder,
+.menu-item-desc::placeholder,
+.menu-item-price::placeholder {
+  color: var(--text-muted);
+}
+
+.menu-section-input {
+  flex: 1;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.menu-item-row {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr 0.7fr auto;
+  gap: 10px;
+  padding: 12px 0;
+  align-items: center;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+/* The last item in a section drops the separator so the section's own
+   bottom border isn't doubled up. */
+.menu-item-row:last-of-type {
+  border-bottom: none;
+  padding-bottom: 6px;
+}
+
+/* Photo URL field sits on its own line inside the same boxed item, spanning
+   the full width of the grid. The input inside picks up the standard themed
+   look from .form-group input automatically. */
+.menu-item-photo-group {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  margin-bottom: 0;
+}
+
+.menu-item-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--glass-bg);
+}
+
+.menu-item-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.menu-item-thumb-placeholder {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.1;
+  padding: 4px;
+}
+
+/* Description cell holds the input plus a small "*optional" chip pinned
+   inside the right edge of the input. The chip auto-hides as soon as the
+   user types so it never overlaps real content. */
+.menu-item-desc-wrap {
+  position: relative;
+}
+
+.menu-item-desc-wrap .label-optional {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  background: transparent;
+}
+
+/* Hide the chip once the input has a value (placeholder no longer shown). */
+.menu-item-desc-wrap input:not(:placeholder-shown) + .label-optional {
+  display: none;
+}
+
+/* Same inline-chip treatment for the Photo URL input. */
+.menu-item-photo-input-wrap {
+  position: relative;
+}
+
+.menu-item-photo-input-wrap .label-optional {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  background: transparent;
+}
+
+.menu-item-photo-input-wrap input:not(:placeholder-shown) + .label-optional {
+  display: none;
+}
+
+.menu-item-name,
+.menu-item-desc,
+.menu-item-price {
+  width: 100%;
+}
+
+.menu-item-remove {
+  background: none;
+  border: 1px solid var(--glass-border);
+  color: var(--text-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.menu-item-remove:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.menu-add-item-btn {
+  margin-top: 4px;
+  padding: 8px 14px;
+  background: transparent;
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.menu-add-item-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Customer-facing collapsible Menu card on the restaurant page */
+.menu-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.menu-card-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  background: none;
+  border: none;
+  font-family: inherit;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.menu-card-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.menu-card-meta {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.menu-card-chevron {
+  display: inline-block;
+  transition: transform 0.2s var(--ease-out);
+  color: var(--text-muted);
+}
+
+.menu-card-chevron.open {
+  transform: rotate(180deg);
+}
+
+.menu-card-body {
+  padding: 4px 20px 20px;
+  border-top: 1px solid var(--glass-border);
+}
+
+.menu-section {
+  margin-top: 16px;
+}
+
+.menu-section-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  margin: 0 0 8px;
+}
+
+.menu-items {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.menu-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--glass-border);
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-item-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Square thumbnail on the left of a public-facing menu item. Clicking opens
+   the existing GalleryLightbox for a zoomed view. */
+.menu-item-photo-btn {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  overflow: hidden;
+  padding: 0;
+  background: var(--glass-bg);
+  cursor: zoom-in;
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
+}
+
+.menu-item-photo-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.menu-item-photo-btn:hover {
+  transform: scale(1.04);
+  box-shadow: 0 4px 16px var(--accent-glow);
+}
+
+/* "+2" pill in the bottom-right of the thumbnail when an item has more
+   than one photo — same visual cue used elsewhere for "see more" indicators. */
+.menu-item-photo-btn {
+  position: relative;
+}
+
+.menu-item-photo-count {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  pointer-events: none;
+}
+
+.menu-item-name-text {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.menu-item-desc-text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.menu-item-price-text {
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 /* Info chips */
@@ -3946,6 +4606,21 @@
   color: var(--danger);
   border-color: rgba(248, 113, 113, 0.3);
   background: var(--danger-bg);
+}
+
+/* Owner-side "EDITED" badge surfaced when a hidden review's author has
+   re-submitted/edited their comment while the moderation hold was still
+   active. The owner uses it as a hint to reconsider hiding. */
+.review-edited-pill {
+  background: var(--info-bg);
+  color: var(--info);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .review-hidden-pill {
