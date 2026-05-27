@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const compression = require('compression');
@@ -8,6 +9,7 @@ const AuthController = require('./controllers/authController');
 const UserController = require('./controllers/userController');
 const RestaurantAdminController = require('./controllers/restaurantAdminController');
 const ReviewController = require('./controllers/reviewController');
+const UploadController = require('./controllers/uploadController');
 const { requireAuth, optionalAuth, requireRestaurantOwner, requireRestaurantStaff } = require('./middleware/auth');
 
 const app = express();
@@ -17,6 +19,9 @@ const PORT = 3001;
 app.use(compression());
 app.use(cors());
 app.use(express.json());
+
+// Serve uploaded images publicly
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Public restaurant routes
 app.get('/api/restaurants', RestaurantController.getAll);
@@ -33,6 +38,9 @@ app.delete('/api/restaurants/:id/reviews/me', requireAuth, ReviewController.remo
 app.post('/api/reservations', ReservationController.create);
 app.put('/api/reservations/:id', requireAuth, ReservationController.update);
 app.delete('/api/reservations/:id', requireAuth, ReservationController.cancel);
+
+// Image uploads — any authenticated user can upload (used by restaurant settings + profile)
+app.post('/api/uploads/image', requireAuth, UploadController.middleware, UploadController.errorHandler, UploadController.handle);
 
 // Auth routes
 app.post('/api/auth/register', AuthController.register);

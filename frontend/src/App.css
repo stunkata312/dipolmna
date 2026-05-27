@@ -5017,6 +5017,18 @@
   cursor: not-allowed;
 }
 
+.image-list-upload-btn {
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
+}
+
+.image-list-upload-btn:hover:not(:disabled) {
+  background: var(--glass-hover);
+  box-shadow: none;
+  transform: none;
+}
+
 .image-list-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));

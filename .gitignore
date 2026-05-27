@@ -20,3 +20,7 @@ Thumbs.db
 
 # Claude
 .claude/
+
+# Uploaded user content
+backend/uploads/*
+!backend/uploads/.gitkeep

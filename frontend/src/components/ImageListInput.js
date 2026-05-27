@@ -1,12 +1,16 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { apiFetch, ApiError } from '../api/client';
 
 /**
- * Manages a list of image URLs. Add via input, remove via × button.
- * Drag-style reorder kept out for simplicity — first image is treated as primary.
+ * Manages a list of image URLs. Add via input, remove via × button, or upload
+ * a file (server stores under /uploads and returns an absolute URL).
+ * First image is treated as primary.
  */
 function ImageListInput({ label, hint, value = [], onChange, primaryHint }) {
   const [draft, setDraft] = useState('');
   const [err, setErr] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const handleAdd = () => {
     // Split on whitespace, commas, or semicolons so the user can paste many at once
@@ -56,6 +60,36 @@ function ImageListInput({ label, hint, value = [], onChange, primaryHint }) {
     onChange(next);
   };
 
+  const handleFilePick = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setUploading(true);
+    setErr(null);
+    const uploaded = [];
+    const failed = [];
+
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append('image', file);
+      try {
+        const res = await apiFetch('/uploads/image', { method: 'POST', body: fd });
+        if (res?.url) uploaded.push(res.url);
+      } catch (ex) {
+        failed.push(ex instanceof ApiError ? ex.message : 'upload failed');
+      }
+    }
+
+    if (uploaded.length > 0) {
+      const existing = new Set(value);
+      const fresh = uploaded.filter(u => !existing.has(u));
+      onChange([...value, ...fresh]);
+    }
+    if (failed.length > 0) setErr(failed.join(' · '));
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   return (
     <div className="image-list-input">
       <div className="image-list-header">
@@ -74,6 +108,23 @@ function ImageListInput({ label, hint, value = [], onChange, primaryHint }) {
         <button type="button" className="image-list-add-btn" onClick={handleAdd} disabled={!draft.trim()}>
           + Add
         </button>
+        <button
+          type="button"
+          className="image-list-add-btn image-list-upload-btn"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          title="Upload from your device (max 5MB)"
+        >
+          {uploading ? 'Uploading…' : '↑ Upload'}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          multiple
+          style={{ display: 'none' }}
+          onChange={handleFilePick}
+        />
       </div>
       {err && <div className="field-error">{err}</div>}
 
